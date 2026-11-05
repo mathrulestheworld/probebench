@@ -384,7 +384,8 @@ class App:
                     seen.add(o["value"])
                     uniq.append(o)
             options = uniq
-            shown = "Choose how to approve this sign-in, or type a passcode from the Duo app."
+            shown = (f"Approve the sign-in for {conf['ISYE_USER']} with one of the Duo devices on that account, "
+                     "or type a passcode from the Duo app.")
         elif re.search(r"passphrase", text, re.I):
             kind, title, options = "secret", "SSH key passphrase", []
             shown = "Your SSH key has a passphrase. Type it to unlock the key."
@@ -1029,6 +1030,26 @@ class Handler(BaseHTTPRequestHandler):
             write_conf({"ISYE_USER": user, "GATEWAY": gw})
             ensure_ssh_config(user, gw)
             app.note(f"Account set to {user} via {gw}.")
+            return self.send(200, {"ok": True})
+        if path == "/api/account/reset":   # use a different Georgia Tech account on this Mac
+            if app.live_sessions():
+                raise Problem("End your running sessions first. They belong to the account that's signed in now.")
+            subprocess.run(["ssh", "-O", "exit", GW], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            old = read_conf()
+            write_conf({"ISYE_USER": "", "GATEWAY": old["GATEWAY"]})
+            try:
+                (STATE_DIR / "setup-done").unlink()
+            except FileNotFoundError:
+                pass
+            with app.lock:
+                app.cluster = app.gpus = None
+                app.sessions = {k: v for k, v in app.sessions.items() if v.state not in ("ended", "error", "found")}
+                app.downloads = {}
+                app.ops = {k: v for k, v in app.ops.items() if v["status"] == "running"}
+                for sid, _ in SETUP_STEPS:
+                    app.setup[sid] = {"status": "pending", "detail": "", "fraction": None, "started": None, "typical": None}
+            app.refresh_signin()
+            app.note(f"Signed out {old['ISYE_USER'] or 'the previous account'}; ready for a different account.")
             return self.send(200, {"ok": True})
         if path == "/api/setup":
             app.run_op("setup", app.do_setup)

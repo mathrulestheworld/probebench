@@ -457,7 +457,8 @@ class Lab:
         if s is None:
             s = self.tok.decode([i], skip_special_tokens=False)
             if not s or "�" in s:
-                s = str(self.tok.convert_ids_to_tokens(i))
+                t = self.tok.convert_ids_to_tokens(i)
+                s = t if t else f"<id:{i}>"       # padded vocab slots have no token
             self.tokstr_cache[i] = s
         return s
 

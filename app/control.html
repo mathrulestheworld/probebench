@@ -57,6 +57,18 @@ header.bar .spacer { flex: 1; }
 .dot.good { background: var(--good); }
 .dot.bad { background: var(--critical); }
 .banner { padding: 12px 24px; border-bottom: 1px solid var(--rule); display: none; }
+.acct-menu { position: relative; }
+.acct-menu > summary { list-style: none; cursor: pointer; padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; }
+.acct-menu > summary::-webkit-details-marker { display: none; }
+.acct-menu > summary::after { content: "▾"; color: var(--muted); margin-left: 2px; }
+.acct-menu[open] > summary, .acct-menu > summary:hover { border-color: var(--rule); background: #f7f9fb; }
+.acct-menu .menu { position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid var(--rule); border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(16, 32, 48, .14); padding: 10px; width: 270px; z-index: 10; }
+.acct-menu .menu .hint { padding: 4px 8px 8px; border-bottom: 1px solid var(--rule-soft); margin-bottom: 6px; }
+.menu-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px; border-radius: 5px; cursor: pointer; color: var(--ink); }
+.menu-item:hover { background: #f2f5f8; }
+.menu-item[hidden] { display: none; }
+.menu .msg { margin-top: 6px; }
 .banner.show { display: block; }
 .banner.bad { background: #fbefef; }
 .banner.info { background: #fdf6e6; }
@@ -170,11 +182,20 @@ footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: c
 <header class="bar">
   <h1>Probe Bench</h1>
   <span class="spacer"></span>
-  <span class="chip" id="account-chip"><span class="dot" id="acct-dot"></span><span id="acct-text">Starting</span></span>
+  <details class="acct-menu" id="acct-menu">
+    <summary class="chip"><span class="dot" id="acct-dot"></span><span id="acct-text">Starting</span></summary>
+    <div class="menu" role="menu">
+      <p class="hint" id="menu-who"></p>
+      <button class="menu-item" type="button" id="menu-signin" role="menuitem">Sign in</button>
+      <button class="menu-item" type="button" id="menu-signout" role="menuitem">Sign out</button>
+      <button class="menu-item" type="button" id="menu-switch" role="menuitem">Use a different account</button>
+      <p class="msg error" id="menu-msg"></p>
+    </div>
+  </details>
   <button class="btn small quiet" id="signin-top" type="button" hidden>Sign in</button>
 </header>
 <div class="banner bad" id="lost" role="alert">The Probe Bench app isn't running. Open <b>Probe Bench</b> from your Applications folder, then reload this page.</div>
-<div class="banner info" id="signed-out"><div class="row"><span>You're signed out of the cluster. Sign in to start or reach sessions. You'll need your Georgia Tech password and Duo, and it lasts 8 hours.</span><button class="btn small" id="signin-banner" type="button">Sign in</button></div><p class="msg error" id="signin-msg" style="margin-top:8px"></p></div>
+<div class="banner info" id="signed-out"><div class="row"><span id="signed-out-text">You're signed out of the cluster.</span><button class="btn small" id="signin-banner" type="button">Sign in</button><button class="linkish" id="switch-banner" type="button">Not you? Use a different account</button></div><p class="msg error" id="signin-msg" style="margin-top:8px"></p></div>
 
 <main>
   <!-- ======================= setup ======================= -->
@@ -197,7 +218,7 @@ footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: c
       </div>
       <div class="account-form">
         <div class="field">
-          <label for="user">Georgia Tech username</label>
+          <label for="user">Your Georgia Tech username</label>
           <input type="text" id="user" placeholder="gburdell3" autocomplete="username" spellcheck="false" autocapitalize="off">
         </div>
         <button class="btn" id="save-account" type="button">Continue</button>
@@ -334,6 +355,7 @@ footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: c
       <div class="row"><button class="btn" type="submit" id="dlg-ok">Continue</button><button class="btn quiet" type="button" id="dlg-cancel">Cancel</button></div>
     </form>
     <p class="hint" id="dlg-after" hidden>Waiting for Duo. Approve the request on your phone.</p>
+    <p class="hint" id="dlg-notyou" hidden style="margin-top:12px"><button class="linkish" type="button" id="dlg-switch"></button></p>
   </div>
 </div>
 
@@ -390,6 +412,12 @@ function render() {
   // header
   $("acct-dot").className = "dot " + (st.signed_in ? "good" : "");
   $("acct-text").textContent = st.user ? (st.signed_in ? `Signed in as ${st.user}` : `${st.user}, signed out`) : "Not set up";
+  $("menu-who").textContent = st.user ? `Georgia Tech account: ${st.user}. Probe Bench signs in through ${st.gateway}.` :
+    "No account set up on this Mac yet.";
+  $("menu-signin").hidden = !st.user || st.signed_in;
+  $("menu-signout").hidden = !st.signed_in;
+  $("menu-switch").hidden = !st.user;
+  $("signed-out-text").textContent = `Signed out of the cluster as ${st.user}. Sign in to start or reach sessions. You'll need the Georgia Tech password and Duo for ${st.user}; it lasts 8 hours.`;
   const showHome = st.setup_done && (homeForced || !st.ops.setup || st.ops.setup.status !== "running");
   const firstModel = st.setup_done && !homeForced && st.ops.setup && st.ops.setup.status === "done" && !(st.cluster && st.cluster.models.length);
   $("setup-view").hidden = showHome && !firstModel;
@@ -492,6 +520,9 @@ function renderPrompt(p, st) {
   let text = p.text;
   if (p.kind === "secret" && /password/i.test(p.title) && passwordsAnswered > 0) text = "That password didn't work. Check it and try again.\n\n" + text;
   $("dlg-title").textContent = p.title; $("dlg-text").textContent = text; $("dlg-after").hidden = true;
+  const isPw = p.kind === "secret" && /password/i.test(p.title);
+  $("dlg-notyou").hidden = !isPw || !st.user;
+  $("dlg-switch").textContent = `Not ${st.user}? Use a different account`;
   const opts = $("dlg-opts"); opts.replaceChildren();
   const input = $("dlg-input"); input.value = "";
   input.type = p.kind === "secret" ? "password" : "text";
@@ -523,6 +554,21 @@ $("dlg-form").addEventListener("submit", (e) => {
 });
 $("dlg-cancel").addEventListener("click", async () => { if (promptShown) await api("/api/answer", { id: promptShown, cancel: true }).catch(() => {}); });
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && promptShown) $("dlg-cancel").click(); });
+async function switchAccount() {
+  showMsg("menu-msg", "");
+  if (promptShown) await api("/api/answer", { id: promptShown, cancel: true }).catch(() => {});
+  try {
+    await api("/api/account/reset", {});
+    homeForced = false; $("user").value = ""; $("acct-menu").open = false;
+    await poll(); $("user").focus();
+  } catch (e) { $("acct-menu").open = true; showMsg("menu-msg", e.message); }
+}
+$("menu-switch").addEventListener("click", switchAccount);
+$("switch-banner").addEventListener("click", switchAccount);
+$("dlg-switch").addEventListener("click", switchAccount);
+$("menu-signout").addEventListener("click", () => { $("acct-menu").open = false; api("/api/signout", {}).then(poll); });
+$("menu-signin").addEventListener("click", () => { $("acct-menu").open = false; signin(); });
+document.addEventListener("click", (e) => { if (!$("acct-menu").contains(e.target)) $("acct-menu").open = false; });
 async function signin() { try { await api("/api/signin", {}); poll(); } catch (e) { showMsg("signin-msg", e.message); } }
 $("signin-top").addEventListener("click", signin);
 $("signin-banner").addEventListener("click", signin);
