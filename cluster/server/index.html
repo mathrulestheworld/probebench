@@ -212,6 +212,7 @@ svg text { font-family: var(--sans); }
 .dl-menu .menu .hint { padding: 6px 8px 2px; border-top: 1px solid var(--rule-soft); margin-top: 4px; }
 .menu-item { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 8px; border-radius: 5px; cursor: pointer; color: var(--ink); }
 .menu-item:hover { background: #f2f5f8; }
+.menu-item[disabled] { color: var(--muted); cursor: default; background: none; }
 .act-backdrop { position: fixed; inset: 0; background: rgba(16, 32, 48, .4); z-index: 39; }
 #act-result.expanded { position: fixed; inset: 14px; z-index: 40; overflow: auto; margin: 0; box-shadow: 0 12px 48px rgba(16, 32, 48, .3); }
 #act-result.expanded .act-top { position: sticky; top: -18px; background: #fff; z-index: 5; padding: 18px 0 10px; margin-top: -18px; border-bottom: 1px solid var(--rule-soft); }
@@ -245,10 +246,101 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
 .tip strong { display: block; font-size: 14px; color: var(--ink); }
 .tip span { color: var(--ink-2); }
 
+/* ---------- prompt boxes */
+.chat-opts { border-left: 3px solid var(--gold); padding: 4px 0 4px 14px; margin: 10px 0 6px; max-width: 90ch; }
+.chat-opts > * + * { margin-top: 6px; }
+.chat-opts .hint { margin-left: 24px; }
+.sub-label { display: block; font-weight: 600; color: var(--ink); margin-top: 10px !important; }
+.sub-label .hint { font-weight: 400; margin-left: 6px; }
+#gen-chat-hint, #act-chat-hint { margin-top: -4px; }
+details.exact { margin-top: 12px; }
+details.exact > summary { font-weight: 600; }
+details.exact .count { color: var(--ink-2); font-weight: 400; margin-left: 6px; }
+.exact-text { margin: 8px 0 6px; padding: 10px 12px; background: #f7f9fb; border: 1px solid var(--rule-soft); border-radius: 4px;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; }
+.exact-text .sp { background: var(--gold-wash); border: 1px solid #ddd2ac; border-radius: 3px; padding: 0 3px; color: #5c4d12; }
+
+/* ---------- activations controls */
+.color-row { display: flex; gap: 10px 22px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; font-size: 13px; color: var(--ink-2); }
+.ctl { display: inline-flex; align-items: center; gap: 8px; }
+.seg.small span { padding: 3px 10px; font-size: 12.5px; }
+select { border: 1px solid var(--rule); border-radius: 4px; background: #fff; padding: 3px 6px; }
+.chan-pick { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; padding: 10px 12px; background: #f7f9fb; border-radius: 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border: 1px solid var(--rule); background: #fff; border-radius: 12px; padding: 1px 9px; font-size: 12.5px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.chip small { color: var(--ink-2); margin-left: 4px; }
+.chip:hover { border-color: var(--navy); }
+.chip[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.chip[aria-pressed=true] small { color: #d6e2ee; }
+.vec-controls { margin-bottom: 10px; }
+.vec-plot { position: relative; flex: none; }
+.vec-canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; }
+.vec-mark { position: absolute; top: 6px; width: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
+.vec-scroll { max-height: 70vh; }
+
+/* ---------- GPU memory */
+.gpu-wrap { position: relative; }
+.gpu-btn { border: 1px solid transparent; background: none; border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+.gpu-btn:hover, .gpu-btn[aria-expanded=true] { border-color: var(--rule); background: #f7f9fb; }
+.gpu .chev { color: var(--muted); flex: none; }
+.node { color: var(--ink-2); }
+.mem-pop { position: absolute; left: 0; top: calc(100% + 8px); width: min(500px, calc(100vw - 30px)); max-height: calc(100vh - 90px); overflow: auto;
+  background: #fff; border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 10px 34px rgba(16, 32, 48, .18); padding: 16px 18px; z-index: 50; color: var(--ink); }
+.mem-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.stack-bar { display: flex; gap: 2px; height: 14px; margin: 12px 0 10px; border-radius: 4px; overflow: hidden; background: #fff; }
+.stack-bar span { display: block; min-width: 2px; }
+.stack-bar span.free { background: #e3e8ee; }
+.mem-rows { display: grid; grid-template-columns: 12px 1fr auto; gap: 8px 10px; align-items: start; font-size: 13px; }
+.mem-rows .sw { width: 12px; height: 12px; border-radius: 3px; margin-top: 3px; }
+.mem-rows .v { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.mem-rows .n { color: var(--ink-2); font-size: 12.5px; display: block; }
+.mem-pop h3 { font-size: 14px; color: var(--ink); margin: 16px 0 4px; }
+.mem-pop p { font-size: 13px; }
+.mem-pop p + p { margin-top: 6px; }
+
+/* ---------- model card */
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 6px; }
+.card-head a.btn { text-decoration: none; }
+.card-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 8px 36px; }
+dl.arch { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 8px 0 0; font-size: 13px; }
+dl.arch dt { color: var(--ink-2); }
+dl.arch dd { margin: 0; font-variant-numeric: tabular-nums; }
+dl.arch .note { display: block; color: var(--muted); font-size: 12px; }
+.parts { display: grid; grid-template-columns: max-content 1fr max-content; gap: 6px 12px; align-items: center; font-size: 13px; margin-top: 4px; }
+.parts .track { height: 8px; background: #edf1f5; border-radius: 0 4px 4px 0; }
+.parts .fill { height: 100%; background: var(--series); border-radius: 0 4px 4px 0; min-width: 2px; }
+.parts .v { font-variant-numeric: tabular-nums; color: var(--ink-2); text-align: right; }
+.readme-box, .config-box { margin-top: 18px; border-top: 1px solid var(--rule-soft); padding-top: 12px; }
+.readme-box > summary, .config-box > summary { font-weight: 600; font-size: 15px; }
+dl.meta { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 10px 0 0; font-size: 13px; }
+dl.meta div { display: flex; gap: 6px; }
+dl.meta dt { color: var(--ink-2); }
+dl.meta dd { margin: 0; }
+.readme { max-height: 460px; overflow: auto; margin-top: 10px; padding: 4px 16px 12px; border: 1px solid var(--rule-soft); border-radius: 4px; max-width: 100ch; }
+.readme h3, .readme h4, .readme h5 { color: var(--ink); margin: 16px 0 6px; }
+.readme h3 { font-size: 17px; } .readme h4 { font-size: 15px; } .readme h5 { font-size: 14px; }
+.readme p, .readme ul, .readme ol, .readme pre, .readme table, .readme blockquote { margin: 0 0 10px; }
+.readme ul, .readme ol { padding-left: 22px; }
+.readme pre { background: #f7f9fb; padding: 8px 10px; border-radius: 4px; overflow: auto; font-size: 12.5px; }
+.readme code { background: #f2f4f7; padding: 0 3px; border-radius: 3px; }
+.readme pre code { background: none; padding: 0; }
+.readme blockquote { border-left: 3px solid var(--rule); padding-left: 10px; color: var(--ink-2); }
+.readme table { border-collapse: collapse; font-size: 12.5px; display: block; overflow-x: auto; }
+.readme th, .readme td { border: 1px solid var(--rule-soft); padding: 3px 8px; text-align: left; }
+.readme hr { border: 0; border-top: 1px solid var(--rule-soft); margin: 14px 0; }
+.config { max-height: 360px; overflow: auto; background: #f7f9fb; border: 1px solid var(--rule-soft); border-radius: 4px; padding: 10px 12px; font-size: 12px; margin-top: 8px; }
+.btn.small { padding: 2px 10px; }
+.layer-nav select { min-width: 170px; }
+.plist.short { max-height: 360px; }
+.plist .s .t { color: var(--muted); }
+.charts3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-top: 12px; }
+
 @media (max-width: 960px) {
   .layout { grid-template-columns: 1fr; }
   aside.model { border-right: 0; border-bottom: 1px solid var(--rule); }
   .weights { grid-template-columns: 1fr; }
+  .card-grid { grid-template-columns: 1fr; }
+  .mem-pop { position: fixed; left: 12px; right: 12px; top: 60px; width: auto; }
   .tabs { top: 0; position: static; }
   header.bar { position: static; }
 }
@@ -258,7 +350,11 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
 <header class="bar">
   <h1>Probe Bench</h1>
   <span class="conn" id="conn"><span class="dot" id="conn-dot"></span><span id="conn-text">Connecting</span></span>
-  <span class="gpu" id="gpu"></span>
+  <div class="gpu-wrap">
+    <button class="gpu-btn" id="gpu-btn" type="button" aria-expanded="false" aria-controls="mem-pop" title="Show what's using GPU memory"><span class="gpu" id="gpu"></span></button>
+    <div class="mem-pop" id="mem-pop" role="dialog" aria-label="GPU memory" hidden></div>
+  </div>
+  <span class="node" id="gpu-node"></span>
   <span class="spacer"></span>
   <span class="idle" id="idle"></span>
   <button class="btn danger" id="end-btn" type="button">End session</button>
@@ -326,15 +422,24 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
         <textarea id="gen-prompt" rows="6" placeholder="Write a prompt. Press ⌘ Enter to run."></textarea>
         <div class="options">
           <label class="check"><input type="checkbox" id="gen-chat"> Chat format</label>
-          <label class="check"><input type="checkbox" id="gen-think"> Allow thinking</label>
           <label class="field">Max new tokens <input type="number" id="gen-max" min="1" max="4096" value="200"></label>
-          <label class="field">Temperature <input type="number" id="gen-temp" min="0" max="2" step="0.1" value="0"></label>
+          <label class="field" title="0 always picks the most likely next token. Higher values sample more freely.">Temperature <input type="number" id="gen-temp" min="0" max="2" step="0.1" value="0"></label>
         </div>
-        <details>
-          <summary>System prompt</summary>
-          <textarea id="gen-system" rows="3" style="margin-top:8px" placeholder="Optional. Only used with Chat format."></textarea>
+        <p class="hint" id="gen-chat-hint"></p>
+        <div class="chat-opts" id="gen-chat-opts" hidden>
+          <div id="gen-think-row">
+            <label class="check"><input type="checkbox" id="gen-think"> Allow thinking</label>
+            <p class="hint" id="gen-think-hint"></p>
+          </div>
+          <p class="hint" id="gen-nothink" hidden>This model's chat template has no thinking switch.</p>
+          <label class="sub-label" for="gen-system">System prompt <span class="hint">optional</span></label>
+          <textarea id="gen-system" rows="2" placeholder="Instructions for the whole conversation, like “Answer in one sentence.”"></textarea>
+        </div>
+        <details class="exact" id="gen-exact">
+          <summary>Exact input to the model<span class="count" id="gen-exact-count"></span></summary>
+          <pre class="exact-text" id="gen-exact-text"></pre>
+          <p class="hint" id="gen-exact-note"></p>
         </details>
-        <p class="hint" style="margin-top:8px">Chat format wraps your prompt in the model's chat template, which instruction-tuned models expect. Temperature 0 always picks the most likely next token.</p>
         <div class="row" style="margin-top:12px">
           <button class="btn" id="gen-run" type="button">Run</button>
           <button class="btn quiet" id="gen-stop" type="button" hidden>Stop</button>
@@ -359,13 +464,28 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
     <!-- Activations -->
     <section role="tabpanel" id="p-act" aria-labelledby="tab-act" hidden>
       <div class="panel">
-        <p class="lede">Runs a prompt through the model once and shows, for every token, how large its internal state is after each layer, and what the model would predict next if it stopped at that layer.</p>
+        <p class="lede">Runs a prompt through the model once and keeps the residual stream: the vector each token carries from layer to layer. You can look at its size, at any single channel, at the whole vector for one token, and at what the model would predict next if it stopped at each layer.</p>
         <label for="act-prompt" class="sr-only">Prompt to analyze</label>
         <textarea id="act-prompt" rows="3" placeholder="The capital of France is"></textarea>
         <div class="options">
           <label class="check"><input type="checkbox" id="act-chat"> Chat format</label>
           <span class="hint">Up to 256 tokens.</span>
         </div>
+        <p class="hint" id="act-chat-hint"></p>
+        <div class="chat-opts" id="act-chat-opts" hidden>
+          <div id="act-think-row">
+            <label class="check"><input type="checkbox" id="act-think"> Allow thinking</label>
+            <p class="hint" id="act-think-hint"></p>
+          </div>
+          <p class="hint" id="act-nothink" hidden>This model's chat template has no thinking switch.</p>
+          <label class="sub-label" for="act-system">System prompt <span class="hint">optional</span></label>
+          <textarea id="act-system" rows="2" placeholder="Instructions for the whole conversation"></textarea>
+        </div>
+        <details class="exact" id="act-exact">
+          <summary>Exact input to the model<span class="count" id="act-exact-count"></span></summary>
+          <pre class="exact-text" id="act-exact-text"></pre>
+          <p class="hint" id="act-exact-note"></p>
+        </details>
         <div class="row">
           <button class="btn" id="act-run" type="button">Analyze</button>
           <button class="btn quiet" id="act-save" type="button">Save activations</button>
@@ -387,9 +507,12 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
               <summary class="btn quiet">Download</summary>
               <div class="menu">
                 <button class="menu-item" type="button" data-dl="svg">The map as an SVG image</button>
+                <button class="menu-item" type="button" data-dl="vecpng">The full-vector view as a PNG image</button>
                 <button class="menu-item" type="button" data-dl="norms">State sizes as CSV (layers by tokens)</button>
+                <button class="menu-item" type="button" data-dl="chan" id="dl-chan">The selected channel as CSV (layers by tokens)</button>
+                <button class="menu-item" type="button" data-dl="vec" id="dl-vec">Every channel at the selected token as CSV (layers by channels)</button>
                 <button class="menu-item" type="button" data-dl="lens">Top 5 predictions at every layer and token as CSV</button>
-                <button class="menu-item" type="button" data-dl="json">Everything as JSON</button>
+                <button class="menu-item" type="button" data-dl="json">Sizes, predictions and largest channels as JSON</button>
                 <p class="hint">For the full activation vectors, use Save activations above.</p>
               </div>
             </details>
@@ -397,24 +520,61 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
         </div>
 
         <h3 class="sub">Tokens</h3>
-        <p class="hint">Pick a token, or click a cell in the map, to see what the model predicts after it at each layer.</p>
+        <p class="hint">Pick a token, or click a cell in a map, to inspect it.</p>
         <div class="tokens" id="act-tokens" role="group" aria-label="Tokens"></div>
 
         <div class="map-controls">
           <div class="seg" role="radiogroup" aria-label="What the map shows">
-            <label><input type="radio" name="mapview" value="size" checked><span>Size of internal state</span></label>
+            <label><input type="radio" name="mapview" value="size" checked><span>State size</span></label>
+            <label><input type="radio" name="mapview" value="chan"><span>One channel</span></label>
             <label><input type="radio" name="mapview" value="pred"><span>Top prediction</span></label>
           </div>
-          <div class="scale-row" id="size-opts">
-            <label class="check"><input type="radio" name="scale" value="row" checked> Compare tokens within each layer</label>
-            <label class="check"><input type="radio" name="scale" value="global"> Compare across all layers (log scale)</label>
-            <label class="check"><input type="checkbox" id="skip-first" checked> Leave the first token out of the color scale</label>
-          </div>
+        </div>
+        <div class="chan-pick" id="chan-pick" hidden>
+          <label class="field">Channel <input type="number" id="ch-input" min="0" step="1"></label>
+          <span class="hint" id="ch-of"></span>
+          <span class="hint chips-label" id="ch-top-label">Largest values:</span>
+          <div class="chips" id="ch-top"></div>
+        </div>
+        <div class="color-row">
+          <span class="ctl" id="norm-ctl">Color range
+            <span class="seg small" role="radiogroup" aria-label="Color range">
+              <label><input type="radio" name="norm" value="global" checked><span>Whole map</span></label>
+              <label><input type="radio" name="norm" value="row"><span>Each layer</span></label>
+            </span>
+          </span>
+          <span class="ctl">Scale
+            <span class="seg small" role="radiogroup" aria-label="Scale">
+              <label><input type="radio" name="scale" value="lin" checked><span>Linear</span></label>
+              <label><input type="radio" name="scale" value="log"><span>Log</span></label>
+            </span>
+          </span>
+          <label class="ctl" id="cmap-ctl">Colors
+            <select id="cmap">
+              <option value="viridis">Viridis</option>
+              <option value="magma">Magma</option>
+              <option value="blues">Blues</option>
+            </select>
+          </label>
+          <label class="check" id="skip-row"><input type="checkbox" id="skip-first" checked> Leave the first token out of the range</label>
         </div>
         <p class="chart-title" id="map-title"></p>
         <p class="chart-sub" id="heat-sub"></p>
         <div class="map-scroll" id="heat"></div>
         <div class="heat-legend-row"><span class="legend" id="heat-legend"></span><span class="hint" id="scroll-hint"></span></div>
+
+        <h3 class="sub" id="vec-title">Every channel at the selected token</h3>
+        <p class="chart-sub" id="vec-sub"></p>
+        <div class="row vec-controls">
+          <span class="seg small" role="radiogroup" aria-label="Width of each channel">
+            <label><input type="radio" name="vzoom" value="fit" checked><span>Fit to width</span></label>
+            <label><input type="radio" name="vzoom" value="1"><span>1 px per channel</span></label>
+            <label><input type="radio" name="vzoom" value="4"><span>4 px per channel</span></label>
+          </span>
+          <span class="hint" id="vec-status"></span>
+        </div>
+        <div class="map-scroll vec-scroll" id="vec"></div>
+        <div class="heat-legend-row"><span class="legend" id="vec-legend"></span></div>
 
         <h3 class="sub" id="lens-title">Prediction at each layer</h3>
         <p class="chart-sub">Each row reads the model's state at that layer through its final norm and output head (the "logit lens"). The top row is the model's real output.</p>
@@ -430,12 +590,63 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
 
     <!-- Weights -->
     <section role="tabpanel" id="p-w" aria-labelledby="tab-w" hidden>
+      <div class="panel" id="card">
+        <div class="card-head">
+          <div>
+            <h2>Model card</h2>
+            <p class="loaded-name" id="card-name"></p>
+          </div>
+          <a class="btn quiet" id="card-link" target="_blank" rel="noopener noreferrer" hidden>Open on Hugging Face</a>
+        </div>
+        <p class="empty" id="card-empty">Load a model to see its card.</p>
+        <div id="card-body" hidden>
+          <div class="card-grid">
+            <div>
+              <h3 class="sub">Architecture</h3>
+              <dl class="arch" id="card-facts"></dl>
+            </div>
+            <div>
+              <h3 class="sub">Where the parameters are</h3>
+              <p class="chart-sub" id="parts-sub"></p>
+              <div class="parts" id="card-parts"></div>
+            </div>
+          </div>
+          <details class="readme-box" id="readme-box" open>
+            <summary>README</summary>
+            <dl class="meta" id="readme-meta"></dl>
+            <div class="readme" id="readme"><p class="hint">Loading the README…</p></div>
+          </details>
+          <details class="config-box">
+            <summary>config.json</summary>
+            <pre class="config" id="card-config"></pre>
+          </details>
+        </div>
+      </div>
       <div class="weights">
         <div class="panel">
-          <label for="w-filter"><h2 style="margin-bottom:8px">Parameters</h2></label>
-          <input type="text" id="w-filter" placeholder="Filter, like layers.10.mlp" spellcheck="false">
-          <p class="hint" id="w-count" style="margin-top:6px"></p>
-          <ul class="plist" id="w-list"></ul>
+          <h2 style="margin-bottom:10px">Parameters</h2>
+          <span class="seg small" role="radiogroup" aria-label="How to list the parameters">
+            <label><input type="radio" name="wmode" value="layer" checked><span>By layer</span></label>
+            <label><input type="radio" name="wmode" value="all"><span>Full list</span></label>
+          </span>
+          <div id="w-by-layer" style="margin-top:12px">
+            <div class="row layer-nav">
+              <button class="btn quiet small" id="w-prev" type="button" aria-label="Previous layer">‹</button>
+              <label class="field">Layer <select id="w-layer"></select></label>
+              <button class="btn quiet small" id="w-next" type="button" aria-label="Next layer">›</button>
+            </div>
+            <p class="hint" id="w-layer-note" style="margin-top:6px"></p>
+            <ul class="plist short" id="w-layer-list"></ul>
+            <h3 class="sub">Outside the layers</h3>
+            <ul class="plist short" id="w-outer-list"></ul>
+            <p class="hint" id="w-outer-note" style="margin-top:6px"></p>
+          </div>
+          <div id="w-all" hidden style="margin-top:12px">
+            <label for="w-filter" class="sr-only">Filter parameters</label>
+            <input type="text" id="w-filter" placeholder="Filter, like layers.10.mlp" spellcheck="false">
+            <p class="hint" id="w-count" style="margin-top:6px"></p>
+            <ul class="plist" id="w-list"></ul>
+          </div>
         </div>
         <div class="panel" id="w-detail">
           <p class="empty" id="w-empty">Load a model, then pick a parameter to see its statistics and spectrum.</p>
@@ -455,6 +666,15 @@ table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0
                 <div id="sv"></div>
                 <div class="row" style="margin-top:8px"><button class="linkish" id="sv-copy" type="button">Copy singular values</button><span class="hint" id="sv-copied"></span></div>
               </div>
+            </div>
+            <div id="w-across" hidden>
+              <h3 class="sub">Across layers</h3>
+              <p class="chart-sub" id="w-across-sub"></p>
+              <button class="btn quiet" id="w-across-btn" type="button"></button>
+              <div id="w-across-progress" hidden style="margin-top:10px; max-width: 420px"><div class="progress"><span></span></div><p class="hint" id="w-across-ptext"></p></div>
+              <p class="msg" id="w-across-msg" style="margin-top:8px"></p>
+              <div class="legend" id="w-across-legend" style="margin-top:10px"></div>
+              <div class="charts3" id="w-across-charts"></div>
             </div>
           </div>
         </div>
@@ -553,7 +773,8 @@ function hideTip() { tip.style.display = "none"; }
 
 // ------------------------------------------------------------------ state
 const S = { status: null, models: null, chosen: null, analysis: null, pos: null, layerFocus: null,
-            weights: null, wSelected: null, history: [], genTask: null };
+            weights: null, wSelected: null, history: [], genTask: null, card: null, readme: null, across: null,
+            wLayer: 0, chan: null, chanCache: new Map(), chanLoading: new Set(), vec: null, vecCache: new Map() };
 
 // ------------------------------------------------------------------ session bar
 function setLost(v) {
@@ -571,6 +792,7 @@ async function refreshStatus() {
   const node = (st.session.node || "").split(".")[0];
   const gpu = $("gpu"); gpu.replaceChildren();
   gpu.append(el("span", { text: g.name }));
+  $("gpu-node").textContent = node ? "on " + node : "";
   if (g.total_gb) {
     const pct = Math.min(100, 100 * g.used_gb / g.total_gb);
     const meter = el("span", { class: "meter", role: "meter", "aria-valuemin": "0", "aria-valuemax": String(g.total_gb.toFixed(1)),
@@ -578,7 +800,9 @@ async function refreshStatus() {
     meter.firstChild.style.width = pct + "%";
     gpu.append(meter, el("span", { text: `${nf(1).format(g.used_gb)} of ${gb(g.total_gb)}` }));
   }
-  if (node) gpu.append(el("span", { text: "on " + node }));
+  const chev = svg("svg", { class: "chev", width: 10, height: 10, viewBox: "0 0 10 10", "aria-hidden": "true" });
+  chev.append(svg("path", { d: "M2 3.5 L5 6.5 L8 3.5", fill: "none", stroke: "currentColor", "stroke-width": 1.5, "stroke-linecap": "round", "stroke-linejoin": "round" }));
+  gpu.append(chev);
   const left = Math.round(st.session.idle_left_s / 60), idle = $("idle");
   idle.replaceChildren();
   if (st.session.idle_left_s < 300) {
@@ -607,6 +831,124 @@ endBtn.addEventListener("click", async () => {
     el("p", { text: "The GPU has been released. To start again, use the Probe Bench app on your Mac. You can close this tab." })));
 });
 
+// ------------------------------------------------------------------ GPU memory breakdown
+const MEM_PARTS = {
+  weights: { label: "Model weights", color: "#2a78d6", note: "The parameters. This doesn't change while the model is loaded." },
+  working: { label: "Working memory", color: "#eb6834", note: "Everything else PyTorch is using right now, mostly the KV cache and activations while a run is going." },
+  cache: { label: "Held for reuse", color: "#1baf7a", note: "Memory PyTorch keeps after a run so the next one starts faster. PyTorch can reuse it; other programs can't." },
+  outside: { label: "CUDA and other", color: "#eda100", note: "The CUDA context and GPU libraries, plus anything else on this GPU." },
+};
+const KV_TYPES = { full_attention: ["Full attention", "#2a78d6"], sliding_attention: ["Sliding window", "#eb6834"],
+                   linear_attention: ["Linear attention (fixed-size state)", "#1baf7a"], chunked_attention: ["Chunked", "#eda100"] };
+function memSize(g) { return g == null ? "–" : g >= 0.095 ? nf(1).format(g) + " GB" : fmtInt.format(Math.round(g * 1024)) + " MB"; }
+function bytesStr(b) {
+  if (b == null) return "–";
+  if (b >= 2 ** 30) return nf(2).format(b / 2 ** 30) + " GB";
+  if (b >= 2 ** 20) return nf(1).format(b / 2 ** 20) + " MB";
+  if (b >= 1024) return nf(1).format(b / 1024) + " KB";
+  return fmtInt.format(b) + " bytes";
+}
+let memTimer = null;
+const memIsOpen = () => !$("mem-pop").hidden;
+function toggleMem(on) {
+  $("mem-pop").hidden = !on; $("gpu-btn").setAttribute("aria-expanded", String(on));
+  clearInterval(memTimer);
+  if (on) { refreshMem(); memTimer = setInterval(refreshMem, 4000); }
+}
+$("gpu-btn").addEventListener("click", (e) => { e.stopPropagation(); toggleMem(!memIsOpen()); });
+document.addEventListener("click", (e) => { if (memIsOpen() && !$("mem-pop").contains(e.target)) toggleMem(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && memIsOpen()) { toggleMem(false); $("gpu-btn").focus(); } });
+async function refreshMem() {
+  try { renderMem(await api("/api/memory")); }
+  catch (e) { $("mem-pop").replaceChildren(el("p", { class: "msg error", text: e.message })); }
+}
+function renderMem(m) {
+  const pop = $("mem-pop"), keepScroll = pop.scrollTop; pop.replaceChildren();
+  pop.append(el("div", { class: "mem-head" }, el("h2", { text: "GPU memory" }),
+    el("button", { class: "linkish", type: "button", text: "Close", onclick: () => toggleMem(false) })));
+  if (m.cuda) {
+    const used = m.total_gb - m.free_gb;
+    pop.append(el("p", { class: "hint", text: `${m.name}: ${memSize(used)} of ${memSize(m.total_gb)} in use.` + (m.busy ? ` A ${m.busy} task is running.` : "") }));
+    const bar = el("div", { class: "stack-bar", role: "img",
+      "aria-label": m.parts.map((p) => `${MEM_PARTS[p.key].label} ${memSize(p.gb)}`).join(", ") + `, free ${memSize(m.free_gb)}` });
+    const rows = el("div", { class: "mem-rows" });
+    for (const p of m.parts) {
+      const d = MEM_PARTS[p.key];
+      if (p.gb > 0.004) {
+        const seg = el("span"); seg.style.flexGrow = p.gb; seg.style.background = d.color;
+        seg.addEventListener("pointermove", (e) => showTip(e, memSize(p.gb), d.label)); seg.addEventListener("pointerleave", hideTip);
+        bar.append(seg);
+      }
+      const sw = el("span", { class: "sw" }); sw.style.background = d.color;
+      rows.append(sw, el("span", {}, document.createTextNode(d.label), el("span", { class: "n", text: d.note })), el("span", { class: "v", text: memSize(p.gb) }));
+    }
+    const free = el("span", { class: "free" }); free.style.flexGrow = m.free_gb; bar.append(free);
+    const sw = el("span", { class: "sw" }); sw.style.background = "#e3e8ee";
+    rows.append(sw, el("span", {}, document.createTextNode("Free"), el("span", { class: "n", text: "Available for longer prompts, bigger KV caches, or another model." })),
+                el("span", { class: "v", text: memSize(m.free_gb) }));
+    pop.append(bar, rows);
+  } else {
+    pop.append(el("p", { class: "hint", text: "This session runs on the CPU (test mode), so there's no GPU memory to break down." }));
+    if (m.weights_gb != null) pop.append(el("p", { text: `Model weights: ${memSize(m.weights_gb)}.` }));
+  }
+  // KV cache
+  pop.append(el("h3", { text: "KV cache" }));
+  const lg = m.last_gen, kv = lg && lg.kv;
+  if (kv) {
+    pop.append(el("p", { text: `The last run (${fmtInt.format(lg.prompt_tokens)} prompt tokens + ${fmtInt.format(lg.new_tokens)} new) built a KV cache of ${bytesStr(kv.total_bytes)}, about ${bytesStr(kv.per_token_bytes)} for each token.` +
+      (lg.peak_extra_gb != null ? ` At its peak the run used ${memSize(lg.peak_extra_gb)} on top of what was already in use.` : "") +
+      " The cache is freed when the run ends." }));
+    pop.append(kvChart(kv));
+  } else {
+    pop.append(el("p", { text: "The KV cache stores every layer's keys and values for the tokens so far, so the model doesn't recompute them. It grows with the length of the prompt plus the reply. Generate something to see its size, layer by layer." }));
+  }
+  const per = m.kv_estimate_bytes || (kv && kv.per_token_bytes);
+  if (m.cuda && per) {
+    const cache = (m.parts.find((p) => p.key === "cache") || {}).gb || 0, room = (m.free_gb + cache) * 2 ** 30;
+    pop.append(el("p", { text: `Room for about ${fmtInt.format(Math.floor(room / per))} more tokens of KV cache at ${bytesStr(per)} per token` +
+      (m.kv_estimate_bytes ? ", counting the layers whose cache keeps growing" : "") + ". Activations need room too, so the real limit is lower." }));
+  }
+  if (m.analysis_cpu_gb) pop.append(el("p", { class: "hint", text: `The last activation analysis (${memSize(m.analysis_cpu_gb)}) is kept in the session's CPU memory, not on the GPU.` }));
+  if (m.cuda) {
+    const btn = el("button", { class: "btn quiet small", type: "button", text: "Give back memory held for reuse" });
+    btn.addEventListener("click", async () => { btn.disabled = true; try { renderMem(await api("/api/memory/release", {})); } catch (e) { btn.disabled = false; } });
+    pop.append(el("div", { class: "row", style: "margin-top:14px" }, btn, el("span", { class: "hint", text: "Updates every few seconds while open." })));
+  }
+  pop.scrollTop = keepScroll;
+}
+// One bar per layer: how much of the KV cache each layer holds.
+function kvChart(kv) {
+  const rows = kv.layers, n = rows.length, W = 460, H = 96, m = { l: 44, r: 6, t: 6, b: 20 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, max = Math.max(...rows.map((r) => r.bytes), 1);
+  const wrap = el("div", { style: "margin-top:8px" });
+  const s = svg("svg", { width: "100%", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `KV cache size for each of ${n} layers` });
+  const g = svg("g", { transform: `translate(${m.l},${m.t})` }); s.append(g);
+  for (const v of [0, max]) {
+    const y = ph - (v / max) * ph;
+    g.append(svg("line", { x1: 0, x2: pw, y1: y + .5, y2: y + .5, stroke: "#e1e0d9" }));
+    const t = svg("text", { x: -6, y: y + 4, "text-anchor": "end", "font-size": 10, fill: "#898781" }); t.textContent = v ? bytesStr(v) : "0"; g.append(t);
+  }
+  const bw = pw / n, gap = bw > 4 ? 1.5 : 0, types = new Set();
+  rows.forEach((r, i) => {
+    const [label, color] = KV_TYPES[r.type] || ["Layer", "#2a78d6"]; types.add(r.type);
+    const bh = Math.max(r.bytes ? 1 : 0, (r.bytes / max) * ph);
+    if (bh) g.append(svg("rect", { x: i * bw + gap / 2, y: ph - bh, width: Math.max(1, bw - gap), height: bh, fill: color, rx: Math.min(2, bw / 3) }));
+    const hit = svg("rect", { x: i * bw, y: 0, width: bw, height: ph, fill: "transparent" });
+    hit.addEventListener("pointermove", (e) => showTip(e, bytesStr(r.bytes), `Layer ${r.layer}${r.type ? ", " + label.toLowerCase() : ""}: ${r.tokens ? fmtInt.format(r.tokens) + " tokens cached" : "fixed-size state"}`));
+    hit.addEventListener("pointerleave", hideTip); g.append(hit);
+  });
+  for (const i of [0, n - 1]) { const t = svg("text", { x: i * bw + bw / 2, y: ph + 14, "text-anchor": "middle", "font-size": 10, fill: "#898781" }); t.textContent = `layer ${i}`; g.append(t); }
+  wrap.append(s);
+  const known = [...types].filter((t) => KV_TYPES[t]);
+  if (known.length > 1) {
+    const lg = el("div", { class: "legend", style: "gap:14px;flex-wrap:wrap" });
+    for (const t of known) { const sw = el("span", { class: "sw", style: `width:10px;height:10px;border-radius:2px;display:inline-block;background:${KV_TYPES[t][1]}` }); lg.append(el("span", { style: "display:inline-flex;gap:5px;align-items:center" }, sw, document.createTextNode(KV_TYPES[t][0]))); }
+    wrap.append(lg);
+  }
+  if (kv.growing_layers < n) wrap.append(el("p", { class: "hint", text: `${kv.growing_layers} of ${n} layers keep growing with every token; the others hold a fixed amount once they're full.` }));
+  return wrap;
+}
+
 // ------------------------------------------------------------------ model panel
 function renderLoaded() {
   const box = $("loaded"), m = S.status && S.status.model;
@@ -622,7 +964,7 @@ function renderLoaded() {
   add("Width", m.width ? fmtInt.format(m.width) : "–");
   add("Vocabulary", m.vocab ? fmtInt.format(m.vocab) : "–");
   add("Chat template", m.chat_template ? "Yes" : "No");
-  if (m.gpu_gb != null) add("GPU memory", gb(m.gpu_gb));
+  if (m.weights_gb != null) add("Weights", memSize(m.weights_gb));
   add("Loaded in", nf(0).format(m.load_seconds) + " s");
   box.append(el("p", { class: "loaded-name", text: m.id }), dl,
              el("button", { class: "linkish", type: "button", text: "Unload", onclick: unload }));
@@ -683,14 +1025,18 @@ async function unload() {
   onModelChanged(null); await refreshStatus(); refreshModels();
 }
 function onModelChanged(info) {
-  S.weights = null; S.wSelected = null; S.analysis = null;
-  $("act-result").hidden = true; $("w-body").hidden = true; $("w-empty").hidden = false;
+  if (S.status) S.status.model = info || null;
+  Object.assign(S, { weights: null, wSelected: null, wIndex: null, wLayer: 0, analysis: null, card: null, cardError: null,
+                     readme: null, across: null, vec: null });
+  $("act-result").hidden = true; $("w-body").hidden = true; $("w-empty").hidden = false; $("w-layer").replaceChildren();
   if (info) {
     const instruct = info.chat_template && info.instruct_guess;
     $("gen-chat").checked = instruct; $("act-chat").checked = false;
     $("gen-chat").disabled = $("act-chat").disabled = !info.chat_template;
+    $("gen-think").checked = $("act-think").checked = false;
   }
-  if (currentTab() === "p-w") loadWeights();
+  refreshPrompts();
+  if (currentTab() === "p-w") loadWeights(); else renderCard();
 }
 $("load-btn").addEventListener("click", () => load(S.chosen));
 $("path-btn").addEventListener("click", () => load($("path-input").value.trim()));
@@ -719,7 +1065,7 @@ function selectTab(tab) {
     $(t.getAttribute("aria-controls")).hidden = !on;
   }
   if (tab.id === "tab-w") loadWeights();
-  if (tab.id === "tab-act" && S.analysis) drawHeat();
+  if (tab.id === "tab-act" && S.analysis) { drawHeat(); S.vecGeom = null; drawVec(); }
 }
 tabs.forEach((t, i) => {
   t.addEventListener("click", () => selectTab(t));
@@ -729,11 +1075,67 @@ tabs.forEach((t, i) => {
   });
 });
 
+// ------------------------------------------------------------------ prompt boxes: chat options and the exact input
+// Generate and Activations share this: system prompt and thinking only show when Chat format is on,
+// and "Exact input to the model" shows the tokens the model will actually receive.
+const PB = {};
+function promptBox(pre, { usePlaceholder = false, thinkText = "", analyze = false } = {}) {
+  const q = (k) => $(`${pre}-${k}`);
+  const box = {
+    seq: 0, timer: null,
+    params() {
+      const chat = q("chat").checked && !q("chat").disabled;
+      const think = chat && q("think").checked && !q("think-row").hidden;
+      return { prompt: q("prompt").value || (usePlaceholder ? q("prompt").placeholder : ""), chat, thinking: think,
+               system: chat ? q("system").value : "" };
+    },
+    sync() {
+      const m = S.status && S.status.model, chat = q("chat").checked && !q("chat").disabled;
+      q("chat-opts").hidden = !chat;
+      q("chat-hint").textContent = !m ? "" : !m.chat_template
+        ? "This model has no chat template, which is usual for base models, so your text goes in as written."
+        : chat ? "Your text becomes a user message inside the model's chat template, the format instruction-tuned models were trained on."
+               : "Off: the model continues your text exactly as written.";
+      const sw = !!(m && m.thinking_switch);
+      q("think-row").hidden = !sw; q("nothink").hidden = sw || !m;
+      q("think-hint").textContent = thinkText;
+    },
+    schedule() { clearTimeout(box.timer); box.timer = setTimeout(() => box.preview(), 250); },
+    async preview() {
+      const m = S.status && S.status.model, count = q("exact-count"), out = q("exact-text"), note = q("exact-note");
+      if (!m) { count.textContent = ""; out.replaceChildren(); note.textContent = "Load a model to see exactly what it receives."; return; }
+      const p = box.params();
+      if (!p.prompt && !p.chat) { count.textContent = ""; out.replaceChildren(); note.textContent = "Write a prompt to see it here."; return; }
+      const seq = ++box.seq;
+      try {
+        const r = await api("/api/render", p);
+        if (seq !== box.seq) return;
+        if (r.unavailable) { count.textContent = ""; out.replaceChildren(); note.textContent = r.unavailable; return; }
+        count.textContent = `(${fmtInt.format(r.count)} token${r.count === 1 ? "" : "s"})`;
+        out.replaceChildren(...r.segments.map((g) => (g.s ? el("span", { class: "sp", text: g.t }) : document.createTextNode(g.t))));
+        const bits = [];
+        bits.push(r.special ? `Highlighted: ${r.special} special token${r.special === 1 ? "" : "s"} added by ${p.chat ? "the chat template and " : ""}the tokenizer.`
+                            : "No special tokens were added.");
+        if (r.cut) bits.push("Showing the first 8,192 tokens.");
+        if (analyze && r.count > 256) bits.push(`Analyze reads the first 256 of these ${fmtInt.format(r.count)} tokens.`);
+        note.textContent = bits.join(" ");
+      } catch (e) { if (seq === box.seq) { count.textContent = ""; note.textContent = e.message; } }
+    },
+  };
+  q("prompt").addEventListener("input", box.schedule);
+  q("system").addEventListener("input", box.schedule);
+  for (const k of ["chat", "think"]) q(k).addEventListener("change", () => { box.sync(); box.schedule(); });
+  PB[pre] = box;
+  return box;
+}
+promptBox("gen", { thinkText: "The model writes out its reasoning before the answer. The reasoning counts toward Max new tokens, so raise it." });
+promptBox("act", { usePlaceholder: true, analyze: true,
+                   thinkText: "Uses the template's thinking mode, which changes the tokens after your message. Analyze reads the prompt only; it doesn't generate." });
+function refreshPrompts() { for (const b of Object.values(PB)) { b.sync(); b.schedule(); } }
+
 // ------------------------------------------------------------------ generate
 function genParams() {
-  return { prompt: $("gen-prompt").value, chat: $("gen-chat").checked, thinking: $("gen-think").checked,
-           system: $("gen-system").value, max_new_tokens: Number($("gen-max").value) || 200,
-           temperature: Number($("gen-temp").value) || 0 };
+  return { ...PB.gen.params(), max_new_tokens: Number($("gen-max").value) || 200, temperature: Number($("gen-temp").value) || 0 };
 }
 async function generate() {
   const p = genParams();
@@ -782,6 +1184,7 @@ function renderHistory() {
   for (const h of S.history) {
     ul.append(el("li", {}, el("button", { type: "button", onclick: () => {
       $("gen-prompt").value = h.p.prompt; $("gen-chat").checked = h.p.chat; $("gen-system").value = h.p.system || "";
+      $("gen-think").checked = !!h.p.thinking; PB.gen.sync(); PB.gen.schedule();
       $("gen-max").value = h.p.max_new_tokens; $("gen-temp").value = h.p.temperature;
       const out = $("gen-out"); out.className = "output"; out.textContent = h.text; window.scrollTo({ top: 0 });
     } }, el("span", { class: "p", text: h.p.prompt.slice(0, 140) }), el("span", { class: "o", text: `${h.model}: ${h.text.replace(/\s+/g, " ").slice(0, 200)}` }))));
@@ -789,20 +1192,86 @@ function renderHistory() {
 }
 
 // ------------------------------------------------------------------ activations
-const RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"];
-const rampRGB = RAMP.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
-function rampColor(t) {
-  t = Math.max(0, Math.min(1, t)) * (rampRGB.length - 1);
-  const i = Math.min(rampRGB.length - 2, Math.floor(t)), f = t - i, a = rampRGB[i], b = rampRGB[i + 1];
-  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
+// Colors. Sizes and probabilities use a sequential map you pick; signed values (channels) always use
+// blue for negative and red for positive, with gray at zero.
+const CMAP_STOPS = {
+  viridis: ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"],
+  magma: ["#000004", "#180f3d", "#440f76", "#721f81", "#9e2f7f", "#cd4071", "#f1605d", "#fd9668", "#feca8d", "#fcfdbf"],
+  blues: ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"],
+  div: ["#0d366b", "#1c5cab", "#3987e5", "#86b6ef", "#cde2fb", "#f0efec", "#f9d3cd", "#f2a197", "#e34948", "#b52b2b", "#7a1717"],
+};
+const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const CMAP_RGB = Object.fromEntries(Object.entries(CMAP_STOPS).map(([k, v]) => [k, v.map(hexRGB)]));
+function lerpRGB(stops, t) {
+  t = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0)) * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(t)), f = t - i, a = stops[i], b = stops[i + 1];
+  return [Math.round(a[0] + (b[0] - a[0]) * f), Math.round(a[1] + (b[1] - a[1]) * f), Math.round(a[2] + (b[2] - a[2]) * f)];
 }
-function actParams() { return { prompt: $("act-prompt").value || $("act-prompt").placeholder, chat: $("act-chat").checked }; }
+const rgbCss = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+const cmapName = () => (CMAP_RGB[$("cmap").value] ? $("cmap").value : "viridis");
+const seqRGB = (t) => lerpRGB(CMAP_RGB[cmapName()], t);
+const divRGB = (t) => lerpRGB(CMAP_RGB.div, (Math.max(-1, Math.min(1, t)) + 1) / 2);
+const isDark = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] < 140;
+const colorOpts = () => ({ mode: document.querySelector("input[name=norm]:checked").value,
+                           log: document.querySelector("input[name=scale]:checked").value === "log" });
+// rows: one array per layer. skip: leading columns (tokens) left out of the color range.
+function makeScale(rows, signed, skip = 0) {
+  const { mode, log } = colorOpts();
+  const tf = log ? (v) => (v > 0 ? Math.log10(v) : NaN) : (v) => v;
+  let stats = rows.map((row) => {
+    let lo = Infinity, hi = -Infinity, m = 0;
+    for (let j = skip; j < row.length; j++) {
+      const v = row[j];
+      if (!Number.isFinite(v)) continue;
+      if (signed) { const a = Math.abs(v); if (a > m) m = a; }
+      else { const x = tf(v); if (Number.isFinite(x)) { if (x < lo) lo = x; if (x > hi) hi = x; } }
+    }
+    return { lo, hi, m };
+  });
+  if (mode === "global") {
+    let lo = Infinity, hi = -Infinity, m = 0;
+    for (const s of stats) { lo = Math.min(lo, s.lo); hi = Math.max(hi, s.hi); m = Math.max(m, s.m); }
+    stats = stats.map(() => ({ lo, hi, m }));
+  }
+  const f = signed
+    ? (v, li) => {
+        const M = stats[li].m || 1;
+        if (!log) return v / M;
+        const s0 = M / 1000;                                 // symmetric log: linear near 0, log further out
+        return Math.sign(v) * Math.log1p(Math.abs(v) / s0) / Math.log1p(M / s0);
+      }
+    : (v, li) => { const { lo, hi } = stats[li], x = tf(v); return Number.isFinite(x) ? (hi > lo ? (x - lo) / (hi - lo) : 0.5) : 0; };
+  return { f, stats, mode, log, signed, color: (v, li) => (signed ? divRGB(f(v, li)) : seqRGB(f(v, li))) };
+}
+function predScale() {
+  const { log } = colorOpts();
+  return { log, pred: true, signed: false, color: (p) => seqRGB(log ? (Math.log10(Math.max(p, 1e-4)) + 4) / 4 : p) };
+}
+function drawLegend(host, sc) {
+  host.replaceChildren();
+  const ramp = el("span", { class: "ramp" });
+  ramp.style.background = `linear-gradient(90deg, ${(sc.signed ? CMAP_STOPS.div : CMAP_STOPS[cmapName()]).join(",")})`;
+  if (sc.pred) host.append(el("span", { text: sc.log ? "Probability 0.0001 or less" : "Probability 0" }), ramp, el("span", { text: "1" }));
+  else if (sc.signed && sc.mode === "row") host.append(el("span", { text: "Most negative" }), ramp, el("span", { text: "most positive in each layer, gray is 0" }));
+  else if (sc.signed) { const M = sc.stats[0].m; host.append(el("span", { text: "−" + fmt(M, 3) }), ramp, el("span", { text: "+" + fmt(M, 3) + ", gray is 0" })); }
+  else if (sc.mode === "row") host.append(el("span", { text: "Smallest" }), ramp, el("span", { text: "largest in each layer" }));
+  else { const { lo, hi } = sc.stats[0], b = (x) => fmt(sc.log ? 10 ** x : x, 3); host.append(el("span", { text: b(lo) }), ramp, el("span", { text: b(hi) })); }
+  if (sc.log) host.append(el("span", { class: "hint", text: sc.signed ? "(symmetric log scale)" : "(log scale)" }));
+}
+const mapView = () => document.querySelector("input[name=mapview]:checked").value;
+function setMapView(v) { const r = document.querySelector(`input[name=mapview][value=${v}]`); if (r) r.checked = true; }
+const skipFirst = () => !!(S.analysis && $("skip-first").checked && S.analysis.tokens.length >= 3);
+
+// ---- running an analysis
 $("act-run").addEventListener("click", async () => {
   showMsg("act-msg", ""); $("act-run").disabled = true;
+  const p = PB.act.params();
   try {
     $("act-progress").hidden = false;
-    const r = await runTask("/api/analyze", actParams(), (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
-    S.analysis = r; S.analysisPrompt = actParams().prompt; S.pos = r.tokens.length - 1; S.layerFocus = null; S.mapGeom = null;
+    const r = await runTask("/api/analyze", p, (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
+    S.analysis = r; S.analysisParams = p; S.pos = r.tokens.length - 1; S.layerFocus = null; S.mapGeom = null;
+    S.chanCache = new Map(); S.chanLoading = new Set(); S.vecCache = new Map(); S.vec = null; S.vecGeom = null;
+    S.chan = ((r.tokens.length >= 3 ? r.top_channels_skip : r.top_channels)[0] || { c: 0 }).c;
     showMsg("act-msg", r.truncated ? `Showing the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "", r.truncated ? "warn" : "");
     $("act-result").hidden = false; renderAnalysis();
   } catch (e) { showMsg("act-msg", e.message, "error"); }
@@ -812,7 +1281,7 @@ $("act-save").addEventListener("click", async () => {
   showMsg("act-msg", ""); $("act-save").disabled = true;
   try {
     $("act-progress").hidden = false;
-    const r = await runTask("/api/export", actParams(), (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
+    const r = await runTask("/api/export", PB.act.params(), (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
     showMsg("act-msg", "");
     const box = $("act-saved"); box.hidden = false;
     const code = `import torch\nd = torch.load("${r.path}")\nacts = d["residual_stream"]   # shape ${JSON.stringify(r.shape)}: [layers + 1, tokens, width]\ntokens = d["tokens"]`;
@@ -825,8 +1294,12 @@ $("act-save").addEventListener("click", async () => {
   finally { $("act-save").disabled = false; $("act-progress").hidden = true; }
 });
 $("act-prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $("act-run").click(); } });
-document.querySelectorAll("input[name=scale], input[name=mapview]").forEach((r) => r.addEventListener("change", drawHeat));
-$("skip-first").addEventListener("change", drawHeat);
+const redrawAll = () => { if (!S.analysis) return; drawHeat(); drawVec(); renderChanPicker(); };
+document.querySelectorAll("input[name=norm], input[name=scale]").forEach((r) => r.addEventListener("change", redrawAll));
+$("cmap").addEventListener("change", redrawAll);
+$("skip-first").addEventListener("change", redrawAll);
+document.querySelectorAll("input[name=mapview]").forEach((r) => r.addEventListener("change", () => { S.mapGeom = null; drawHeat(); }));
+document.querySelectorAll("input[name=vzoom]").forEach((r) => r.addEventListener("change", () => { S.vecGeom = null; drawVec(); }));
 
 function renderAnalysis() {
   const r = S.analysis, box = $("act-tokens"); box.replaceChildren();
@@ -835,46 +1308,85 @@ function renderAnalysis() {
     b.addEventListener("click", () => { S.pos = i; S.layerFocus = null; renderAnalysis(); });
     box.append(b);
   });
-  $("skip-first").parentElement.hidden = r.tokens.length < 3;
-  $("act-summary").textContent = `${r.model}: ${r.tokens.length} tokens, ${r.layers} layers.` + (r.truncated ? ` Only the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "");
-  drawHeat(); drawLens(); drawNormTable();
+  $("skip-row").hidden = r.tokens.length < 3;
+  $("act-summary").textContent = `${r.model}: ${r.tokens.length} tokens, ${r.layers} layers, ${fmtInt.format(r.width)} channels.` +
+    (r.truncated ? ` Only the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "");
+  renderChanPicker(); drawHeat(); drawLens(); drawNormTable(); loadVector();
   const sel = box.querySelector("[aria-pressed=true]"); if (sel) scrollWithin(box, sel);
 }
-function heatScale() {
-  const r = S.analysis, mode = document.querySelector("input[name=scale]:checked").value;
-  const skip = $("skip-first").checked && r.tokens.length >= 3 ? 1 : 0;
-  if (mode === "global") {
-    let lo = Infinity, hi = -Infinity;
-    r.norms.forEach((row) => row.forEach((v, j) => { if (j >= skip && v > 0) { lo = Math.min(lo, Math.log(v)); hi = Math.max(hi, Math.log(v)); } }));
-    return { mode, lo, hi, f: (v) => (hi > lo ? (Math.log(Math.max(v, 1e-9)) - lo) / (hi - lo) : 0.5) };
-  }
-  const ranges = r.norms.map((row) => {
-    const vals = row.filter((_, j) => j >= skip);
-    return [Math.min(...vals), Math.max(...vals)];
-  });
-  return { mode, ranges, f: (v, li) => { const [a, b] = ranges[li]; return b > a ? (v - a) / (b - a) : 0.5; } };
-}
+function heatScale() { return makeScale(S.analysis.norms, false, skipFirst() ? 1 : 0); }
 const layerName = (li) => (li === 0 ? "emb" : String(li));
 // Bring a child into view inside its own scroll box without moving the page.
 function scrollWithin(box, child) {
   const b = box.getBoundingClientRect(), c = child.getBoundingClientRect();
   if (c.top < b.top) box.scrollTop += c.top - b.top - 4; else if (c.bottom > b.bottom) box.scrollTop += c.bottom - b.bottom + 4;
 }
-// The map: layers bottom to top, tokens left to right. It scrolls; the layer labels stay put.
+
+// ---- one channel
+function renderChanPicker() {
+  const r = S.analysis; if (!r) return;
+  $("ch-input").max = r.width - 1;
+  if (S.chan != null && document.activeElement !== $("ch-input")) $("ch-input").value = S.chan;
+  $("ch-of").textContent = `of ${fmtInt.format(r.width)}, numbered 0 to ${fmtInt.format(r.width - 1)}`;
+  const list = (skipFirst() ? r.top_channels_skip : r.top_channels).slice(0, 10), host = $("ch-top"); host.replaceChildren();
+  $("ch-top-label").textContent = skipFirst() ? "Largest values, leaving out the first token:" : "Largest values:";
+  for (const t of list) {
+    const b = el("button", { class: "chip", type: "button", "aria-pressed": String(t.c === S.chan),
+      title: `Channel ${t.c} reaches ${fmt(t.value, 4)} ${t.layer === 0 ? "in the embeddings" : "after layer " + t.layer}, at token ${t.pos} (${tokenText(r.tokens[t.pos])})` },
+      document.createTextNode(String(t.c)), el("small", { text: fmt(t.value, 3) }));
+    b.addEventListener("click", () => { setMapView("chan"); S.mapGeom = null; loadChannel(t.c); });
+    host.append(b);
+  }
+}
+$("ch-input").addEventListener("change", () => { const c = Math.round(Number($("ch-input").value)); setMapView("chan"); loadChannel(c); });
+async function loadChannel(c) {
+  const r = S.analysis; if (!r) return;
+  if (!Number.isInteger(c) || c < 0 || c >= r.width) { showMsg("act-msg", `Pick a channel from 0 to ${r.width - 1}.`, "error"); return; }
+  S.chan = c; renderChanPicker();
+  if (!S.chanCache.has(c)) {
+    if (S.chanLoading.has(c)) return;
+    S.chanLoading.add(c);                       // before drawHeat, which would otherwise ask for it again
+    if (mapView() === "chan") drawHeat();
+    try {
+      const j = await api(`/api/act/channel?aid=${r.aid}&c=${c}`);
+      if (S.analysis !== r) return;
+      S.chanCache.set(c, j.values);
+    } catch (e) { showMsg("act-msg", e.message, "error"); return; }
+    finally { S.chanLoading.delete(c); }
+  }
+  if (S.chan === c) { if (mapView() === "chan") drawHeat(); drawVec(); }
+}
+
+// ---- the map: layers bottom to top, tokens left to right. It scrolls; the layer labels stay put.
 function drawHeat() {
   const r = S.analysis; if (!r) return;
-  const host = $("heat"), keep = { left: host.scrollLeft, top: host.scrollTop }; host.replaceChildren();
-  const view = document.querySelector("input[name=mapview]:checked").value;
-  const expanded = $("act-result").classList.contains("expanded");
-  $("size-opts").hidden = view !== "size";
-  const L = r.norms.length, T = r.tokens.length, sc = view === "size" ? heatScale() : null;
+  const host = $("heat"), keep = { left: host.scrollLeft, top: host.scrollTop };
+  const view = mapView(), expanded = $("act-result").classList.contains("expanded");
+  $("chan-pick").hidden = view !== "chan";
+  $("cmap-ctl").hidden = view === "chan";
+  $("norm-ctl").hidden = view === "pred";
+  $("skip-row").hidden = view === "pred" || r.tokens.length < 3;
+  const L = r.norms.length, T = r.tokens.length;
+  let V;
+  if (view === "size") V = r.norms;
+  else if (view === "pred") V = r.lens_p.map((row) => row.map((x) => x[0]));
+  else {
+    V = S.chanCache.get(S.chan);
+    if (!V) {
+      host.replaceChildren(el("p", { class: "empty", style: "padding:14px", text: `Loading channel ${S.chan}…` }));
+      $("map-title").textContent = `Channel ${S.chan} at each layer and token`; $("heat-sub").textContent = "";
+      if (!S.chanLoading.has(S.chan)) loadChannel(S.chan);
+      return;
+    }
+  }
+  host.replaceChildren();
+  const sc = view === "pred" ? predScale() : makeScale(V, view === "chan", skipFirst() ? 1 : 0);
   const avail = Math.max(300, (host.clientWidth || 900) - 50);
   let cw, ch;
-  if (view === "size") {
+  if (view === "pred") { cw = expanded ? 84 : 66; ch = expanded ? 24 : 20; }
+  else {
     cw = Math.max(expanded ? 22 : 14, Math.min(expanded ? 64 : 44, Math.floor(avail / T)));
     ch = Math.max(expanded ? 12 : 8, Math.min(expanded ? 26 : 16, Math.floor((expanded ? innerHeight - 330 : 520) / L)));
-  } else {
-    cw = expanded ? 84 : 66; ch = expanded ? 24 : 20;
   }
   const top = 6, axisW = 50, bottom = view === "pred" || T > 24 ? 96 : 64;
   const plotW = cw * T, plotH = ch * L, H = top + plotH + bottom;
@@ -887,37 +1399,32 @@ function drawHeat() {
   }
   const yl = svg("text", { transform: `translate(${-axisW + 11},${plotH / 2}) rotate(-90)`, "text-anchor": "middle", "font-size": 11, fill: "#5b6672" });
   yl.textContent = "Layer"; ga.append(yl);
-
-  const grid = svg("svg", { class: "grid", width: plotW + 12, height: H, role: "img",
-    "aria-label": view === "size" ? `Map of internal state size, ${L - 1} layers by ${T} tokens. The table below has the same numbers.`
-      : `Map of the top prediction at each layer and token. The prediction table below lists them.` });
+  const label = { size: `Map of internal state size, ${L - 1} layers by ${T} tokens. The table below has the same numbers.`,
+                  chan: `Map of channel ${S.chan}, ${L - 1} layers by ${T} tokens. Download it as CSV from the Download menu.`,
+                  pred: "Map of the top prediction at each layer and token. The prediction table below lists them." }[view];
+  const grid = svg("svg", { class: "grid", width: plotW + 12, height: H, role: "img", "aria-label": label });
   const g = svg("g", { transform: `translate(0,${top})` }); grid.append(g);
   const chars = Math.max(2, Math.floor((cw - 8) / 7));
   for (let li = 0; li < L; li++) {
-    const y = plotH - (li + 1) * ch;
+    const y = plotH - (li + 1) * ch, where = li === 0 ? "In the embeddings" : "After layer " + li;
     for (let j = 0; j < T; j++) {
-      let fill, tipValue, tipLabel, label = null, dark = false;
-      if (view === "size") {
-        const v = r.norms[li][j], f = sc.f(v, li);
-        fill = rampColor(f); tipValue = fmt(v, 4);
-        tipLabel = `${li === 0 ? "Embeddings" : "After layer " + li}, token ${j}: ${tokenText(r.tokens[j])}`;
-      } else {
-        const id = r.lens_ids[li][j][0], pr = r.lens_p[li][j][0];
-        fill = rampColor(pr); dark = pr > 0.55;
-        const tokStr = tokenText(r.vocab[id]);
-        label = tokStr.length > chars ? tokStr.slice(0, chars - 1) + "…" : tokStr;
-        tipValue = `${tokStr}  ${prob(pr)}`;
-        tipLabel = `Top prediction ${li === 0 ? "from the embeddings" : "after layer " + li}, at token ${j}: ${tokenText(r.tokens[j])}`;
+      const v = V[li][j], c = sc.color(v, li);
+      let tipValue, tipLabel, text = null;
+      if (view === "size") { tipValue = fmt(v, 4); tipLabel = `${where}, token ${j}: ${tokenText(r.tokens[j])}`; }
+      else if (view === "chan") { tipValue = fmt(v, 4); tipLabel = `Channel ${S.chan}. ${where}, token ${j}: ${tokenText(r.tokens[j])}`; }
+      else {
+        const s = tokenText(r.vocab[r.lens_ids[li][j][0]]);
+        text = s.length > chars ? s.slice(0, chars - 1) + "…" : s;
+        tipValue = `${s}  ${prob(v)}`; tipLabel = `Top prediction ${li === 0 ? "from the embeddings" : "after layer " + li}, at token ${j}: ${tokenText(r.tokens[j])}`;
       }
-      const rect = svg("rect", { class: "cell", x: j * cw, y, width: Math.max(1, cw - (cw > 6 ? 1 : 0)), height: Math.max(1, ch - (ch > 6 ? 1 : 0)), fill });
-      const hover = (e) => showTip(e, tipValue, tipLabel);
-      rect.addEventListener("pointermove", hover); rect.addEventListener("pointerleave", hideTip);
+      const rect = svg("rect", { class: "cell", x: j * cw, y, width: Math.max(1, cw - (cw > 6 ? 1 : 0)), height: Math.max(1, ch - (ch > 6 ? 1 : 0)), fill: rgbCss(c) });
+      rect.addEventListener("pointermove", (e) => showTip(e, tipValue, tipLabel)); rect.addEventListener("pointerleave", hideTip);
       rect.addEventListener("click", () => { S.pos = j; S.layerFocus = li; renderAnalysis(); });
       g.append(rect);
-      if (label) {
+      if (text) {
         const t = svg("text", { x: j * cw + 4, y: y + ch / 2 + 4, "font-size": 11, "font-family": "ui-monospace, Menlo, monospace",
-          fill: dark ? "#ffffff" : "#1f2a36", "pointer-events": "none" });
-        t.textContent = label; g.append(t);
+          fill: isDark(c) ? "#ffffff" : "#1f2a36", "pointer-events": "none" });
+        t.textContent = text; g.append(t);
       }
     }
   }
@@ -928,7 +1435,7 @@ function drawHeat() {
   for (let j = 0; j < T; j += every) {
     const x = j * cw + cw / 2;
     const t = svg("text", { "font-size": 11, fill: j === S.pos ? "#1f2a36" : "#5b6672", "font-weight": j === S.pos ? 600 : 400 });
-    if (cw >= 46 && view === "size") { t.setAttribute("x", x); t.setAttribute("y", plotH + 16); t.setAttribute("text-anchor", "middle"); }
+    if (cw >= 46 && view !== "pred") { t.setAttribute("x", x); t.setAttribute("y", plotH + 16); t.setAttribute("text-anchor", "middle"); }
     else { t.setAttribute("transform", `translate(${x - 3},${plotH + 10}) rotate(55)`); }
     t.textContent = tokenText(r.tokens[j]).slice(0, 14); g.append(t);
   }
@@ -940,20 +1447,118 @@ function drawHeat() {
   S.mapGeom = geom;
   const x0 = S.pos * cw, seen = host.clientWidth - axisW;
   if (x0 < host.scrollLeft) host.scrollLeft = x0 - 8; else if (x0 + cw > host.scrollLeft + seen) host.scrollLeft = x0 + cw - seen + 8;
-  if (view === "size") {
-    $("map-title").textContent = "Size of each token's internal state, layer by layer";
-    $("heat-sub").textContent = `${L - 1} layers (bottom: embeddings, top: last layer) by ${T} tokens. Darker means a larger vector norm. Click a cell to inspect it.`;
-  } else {
-    $("map-title").textContent = "Top prediction at each layer and token";
-    $("heat-sub").textContent = `What the model would predict next if it stopped at each layer, for every token. Darker means more confident.`;
-  }
-  const lg = $("heat-legend"); lg.replaceChildren();
-  const ramp = el("span", { class: "ramp" }); ramp.style.background = `linear-gradient(90deg, ${RAMP.join(",")})`;
-  if (view === "pred") lg.append(el("span", { text: "Probability 0" }), ramp, el("span", { text: "1" }));
-  else if (sc.mode === "global") lg.append(el("span", { text: fmt(Math.exp(sc.lo), 3) }), ramp, el("span", { text: fmt(Math.exp(sc.hi), 3) }));
-  else lg.append(el("span", { text: "Smallest" }), ramp, el("span", { text: "largest in its layer" }));
+  const titles = {
+    size: ["Size of each token's internal state, layer by layer",
+           `The length (L2 norm) of each token's residual-stream vector. ${L - 1} layers, embeddings at the bottom, by ${T} tokens. Click a cell to inspect it.`],
+    chan: [`Channel ${S.chan} at each layer and token`,
+           `One of the ${fmtInt.format(r.width)} numbers in the residual stream. Blue is negative, red is positive. Pick a channel above, or click a column in the full-vector view below.`],
+    pred: ["Top prediction at each layer and token", "What the model would predict next if it stopped at each layer, for every token. Darker or brighter means more confident, depending on the colors."],
+  }[view];
+  $("map-title").textContent = titles[0]; $("heat-sub").textContent = titles[1];
+  drawLegend($("heat-legend"), sc);
   $("scroll-hint").textContent = plotW + axisW > host.clientWidth + 4 || H > host.clientHeight + 4 ? "Scroll the map to see all of it, or use Expand." : "";
 }
+
+// ---- every channel of one token: layers by channels
+async function loadVector() {
+  const r = S.analysis, pos = S.pos; if (!r) return;
+  let v = S.vecCache.get(pos);
+  if (!v) {
+    $("vec-status").textContent = "Loading the full vectors…";
+    try {
+      const resp = await fetch(`/api/act/vector?aid=${r.aid}&pos=${pos}`, { credentials: "same-origin" });
+      if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || `Request failed (${resp.status})`); }
+      const [rows, width] = resp.headers.get("X-Shape").split(",").map(Number);
+      v = { rows, width, data: new Float32Array(await resp.arrayBuffer()) };
+      S.vecCache.set(pos, v);
+      if (S.vecCache.size > 24) S.vecCache.delete(S.vecCache.keys().next().value);
+    } catch (e) { if (S.analysis === r && S.pos === pos) $("vec-status").textContent = e.message; return; }
+  }
+  if (S.analysis !== r || S.pos !== pos) return;
+  $("vec-status").textContent = "";
+  S.vec = { ...v, pos }; drawVec();
+}
+function drawVec() {
+  const r = S.analysis, v = S.vec, host = $("vec");
+  if (!r || !v || v.pos !== S.pos) return;
+  const keep = { left: host.scrollLeft, top: host.scrollTop };
+  const L1 = v.rows, d = v.width, axisW = 50, expanded = $("act-result").classList.contains("expanded");
+  const zoom = document.querySelector("input[name=vzoom]:checked").value;
+  const avail = Math.max(200, (host.clientWidth || 900) - axisW - 4);
+  const bins = zoom === "fit" ? Math.min(d, Math.floor(avail)) : d;
+  const px = zoom === "fit" ? avail / bins : Number(zoom);
+  // Bin by the largest magnitude, so a single outlier channel stays visible when many share a pixel.
+  const B = new Float32Array(L1 * bins), C = new Int32Array(L1 * bins);
+  for (let li = 0; li < L1; li++) {
+    const base = li * d;
+    for (let b = 0; b < bins; b++) {
+      const a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
+      let best = v.data[base + a], bc = a;
+      for (let c = a + 1; c < z; c++) { const x = v.data[base + c]; if (Math.abs(x) > Math.abs(best)) { best = x; bc = c; } }
+      B[li * bins + b] = best; C[li * bins + b] = bc;
+    }
+  }
+  const rows = []; for (let li = 0; li < L1; li++) rows.push(B.subarray(li * bins, (li + 1) * bins));
+  const sc = makeScale(rows, true, 0);
+  const rh = Math.max(expanded ? 6 : 4, Math.min(expanded ? 18 : 12, Math.floor((expanded ? innerHeight - 380 : 420) / L1)));
+  const W = Math.round(bins * px), H = L1 * rh, top = 6;
+  const cv = el("canvas", { class: "vec-canvas", width: bins, height: L1, role: "img",
+    "aria-label": `Every channel of token ${S.pos} at each of ${L1 - 1} layers. Download it as CSV from the Download menu.` });
+  cv.style.width = W + "px"; cv.style.height = H + "px"; cv.style.marginTop = top + "px";
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(bins, L1);
+  for (let li = 0; li < L1; li++) {
+    const y = L1 - 1 - li;
+    for (let b = 0; b < bins; b++) {
+      const c = divRGB(sc.f(B[li * bins + b], li)), o = (y * bins + b) * 4;
+      img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const axis = svg("svg", { class: "axis", width: axisW, height: top + H + 28, "aria-hidden": "true" });
+  const ga = svg("g", { transform: `translate(${axisW},${top})` }); axis.append(ga);
+  const step = rh >= 12 ? 1 : rh >= 7 ? 4 : 8;
+  for (let li = 0; li < L1; li += step) {
+    const t = svg("text", { x: -8, y: H - li * rh - rh / 2 + 4, "text-anchor": "end", "font-size": 11, fill: "#5b6672" });
+    t.textContent = layerName(li); ga.append(t);
+  }
+  const ticks = svg("svg", { width: W, height: 28, "aria-hidden": "true", style: "display:block" });
+  for (const c of niceTicks(0, d - 1, Math.max(2, Math.floor(W / 90)))) {
+    const x = (c + 0.5) * W / d;
+    ticks.append(svg("line", { x1: x, x2: x, y1: 0, y2: 4, stroke: "#c3c2b7" }));
+    const t = svg("text", { x, y: 16, "text-anchor": "middle", "font-size": 11, fill: "#5b6672" }); t.textContent = fmtInt.format(c); ticks.append(t);
+  }
+  const plot = el("div", { class: "vec-plot" }, cv, ticks);
+  if (S.chan != null && S.chan < d) {
+    const mark = el("div", { class: "vec-mark", title: `Channel ${S.chan}` });
+    mark.style.left = ((S.chan + 0.5) * W / d - 1) + "px"; mark.style.height = H + "px"; plot.append(mark);
+  }
+  const at = (e) => {
+    const rect = cv.getBoundingClientRect();
+    const b = Math.max(0, Math.min(bins - 1, Math.floor((e.clientX - rect.left) / rect.width * bins)));
+    const li = L1 - 1 - Math.max(0, Math.min(L1 - 1, Math.floor((e.clientY - rect.top) / rect.height * L1)));
+    return { b, li, k: li * bins + b };
+  };
+  cv.addEventListener("pointermove", (e) => {
+    const { b, li, k } = at(e), a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
+    showTip(e, fmt(B[k], 4), `${z - a > 1 ? `Channel ${C[k]}, the largest of ${a}–${z - 1}` : `Channel ${C[k]}`}. ${li === 0 ? "In the embeddings" : "After layer " + li}. Click to map this channel.`);
+  });
+  cv.addEventListener("pointerleave", hideTip);
+  cv.addEventListener("click", (e) => {
+    const { k, li } = at(e); S.layerFocus = li; setMapView("chan"); S.mapGeom = null; loadChannel(C[k]); drawLens();
+    const mt = $("map-title").getBoundingClientRect(); if (mt.top < 60 || mt.top > innerHeight) $("map-title").scrollIntoView({ block: "start", behavior: "smooth" });
+  });
+  host.replaceChildren(el("div", { class: "map-row" }, axis, plot));
+  const geom = [zoom, bins, px, L1, rh].join("|");
+  if (S.vecGeom === geom) { host.scrollLeft = keep.left; host.scrollTop = keep.top; }
+  S.vecGeom = geom;
+  $("vec-title").replaceChildren(document.createTextNode(`Every channel at token ${S.pos}, `), el("code", { text: tokenText(r.tokens[S.pos]) }));
+  $("vec-sub").textContent = `Each row is the token's full residual-stream vector after one layer, all ${fmtInt.format(d)} channels, with the embeddings at the bottom.` +
+    (bins < d ? ` Each column covers ${nf(1).format(d / bins)} channels and shows the largest of them, so outliers stay visible.` : "") +
+    " Click a column to map that channel across all tokens. The gold line marks the channel in the map.";
+  drawLegend($("vec-legend"), sc);
+}
+
+// ---- prediction table
 function drawLens() {
   const r = S.analysis, pos = S.pos, tbl = $("lens"); tbl.replaceChildren();
   $("lens-title").replaceChildren(document.createTextNode("Prediction after token " + pos + ", "), el("code", { text: tokenText(r.tokens[pos]) }), document.createTextNode(", at each layer"));
@@ -998,39 +1603,53 @@ function setExpanded(on) {
   $("act-backdrop").hidden = !on;
   $("act-expand").textContent = on ? "Close" : "Expand";
   document.body.style.overflow = on ? "hidden" : "";
-  drawHeat();
+  S.mapGeom = S.vecGeom = null; drawHeat(); drawVec();
 }
 $("act-expand").addEventListener("click", () => setExpanded(!$("act-result").classList.contains("expanded")));
 $("act-backdrop").addEventListener("click", () => setExpanded(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("act-result").classList.contains("expanded")) setExpanded(false); });
 // ---- downloads (made in the browser from the results already on the page)
 function csvCell(v) { const s = String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+const toCsv = (rows) => rows.map((x) => x.map(csvCell).join(",")).join("\n") + "\n";
 function fileStem() {
   const r = S.analysis, d = new Date(), pad = (n) => String(n).padStart(2, "0");
   return `probebench_${r.model.split("/").pop().replace(/[^A-Za-z0-9._-]+/g, "-")}_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
-function saveText(name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type }));
+function saveBlob(name, blob) {
+  const url = URL.createObjectURL(blob);
   const a = el("a", { href: url, download: name }); document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
+const saveText = (name, text, type) => saveBlob(name, new Blob([text], { type }));
 function download(kind) {
   const r = S.analysis; if (!r) return;
   const stem = fileStem();
   if (kind === "norms") {
     const rows = [["layer", ...r.tokens.map((t, j) => `${j}:${t}`)]];
     r.norms.forEach((row, li) => rows.push([layerName(li), ...row]));
-    saveText(stem + "_state_sizes.csv", rows.map((x) => x.map(csvCell).join(",")).join("\n") + "\n", "text/csv");
+    saveText(stem + "_state_sizes.csv", toCsv(rows), "text/csv");
+  } else if (kind === "chan") {
+    const V = S.chanCache.get(S.chan); if (!V) return;
+    const rows = [["layer", ...r.tokens.map((t, j) => `${j}:${t}`)]];
+    V.forEach((row, li) => rows.push([layerName(li), ...row]));
+    saveText(`${stem}_channel_${S.chan}.csv`, toCsv(rows), "text/csv");
+  } else if (kind === "vec") {
+    const v = S.vec; if (!v) return;
+    const rows = [["layer", ...Array.from({ length: v.width }, (_, c) => "c" + c)]];
+    for (let li = 0; li < v.rows; li++) rows.push([layerName(li), ...Array.from(v.data.subarray(li * v.width, (li + 1) * v.width), (x) => +x.toPrecision(6))]);
+    saveText(`${stem}_token_${v.pos}_all_channels.csv`, toCsv(rows), "text/csv");
   } else if (kind === "lens") {
     const rows = [["layer", "position", "input_token", "rank", "token_id", "token", "probability"]];
     r.lens_ids.forEach((byPos, li) => byPos.forEach((ids, j) => ids.forEach((id, k) =>
       rows.push([layerName(li), j, r.tokens[j], k + 1, id, r.vocab[id], r.lens_p[li][j][k]]))));
-    saveText(stem + "_predictions.csv", rows.map((x) => x.map(csvCell).join(",")).join("\n") + "\n", "text/csv");
+    saveText(stem + "_predictions.csv", toCsv(rows), "text/csv");
   } else if (kind === "json") {
-    const out = { model: r.model, prompt: S.analysisPrompt, chat: r.chat, tokens: r.tokens, token_ids: r.ids, layers: r.layers,
-      state_sizes: r.norms, logit_lens_matches_output: r.lens_matches_output,
+    const p = S.analysisParams || {};
+    const out = { model: r.model, prompt: p.prompt, chat: r.chat, system: p.system || "", thinking: !!p.thinking, tokens: r.tokens, token_ids: r.ids,
+      layers: r.layers, width: r.width, state_sizes: r.norms, logit_lens_matches_output: r.lens_matches_output,
       predictions: r.lens_ids.map((byPos, li) => byPos.map((ids, j) => ids.map((id, k) => ({ token_id: id, token: r.vocab[id], probability: r.lens_p[li][j][k] })))),
-      notes: "state_sizes[layer][token] is the L2 norm of the residual stream; layer 0 is the embeddings. predictions[layer][token] is the logit-lens top 5." };
+      largest_channels: r.top_channels, largest_channels_without_first_token: r.top_channels_skip,
+      notes: "state_sizes[layer][token] is the L2 norm of the residual stream; layer 0 is the embeddings. predictions[layer][token] is the logit-lens top 5. For the full vectors, use Save activations." };
     saveText(stem + "_analysis.json", JSON.stringify(out, null, 1), "application/json");
   } else if (kind === "svg") {
     const row = $("heat").querySelector(".map-row"); if (!row) return;
@@ -1044,37 +1663,234 @@ function download(kind) {
     const gg = svg("g", { transform: `translate(${aw},26)` }); gg.append(...[...grid.childNodes].map((n) => n.cloneNode(true)));
     out.append(ga, gg);
     saveText(stem + "_map.svg", new XMLSerializer().serializeToString(out), "image/svg+xml");
+  } else if (kind === "vecpng") {
+    const cv = $("vec").querySelector("canvas"); if (!cv) return;
+    const scale = Math.max(1, Math.ceil(1200 / cv.width)), rh = Math.max(8, Math.ceil(600 / cv.height));
+    const big = el("canvas", { width: cv.width * scale, height: cv.height * rh });
+    const bx = big.getContext("2d"); bx.imageSmoothingEnabled = false; bx.drawImage(cv, 0, 0, big.width, big.height);
+    big.toBlob((b) => b && saveBlob(`${stem}_token_${S.pos}_all_channels.png`, b), "image/png");
   }
   $("dl-menu").open = false;
 }
 document.querySelectorAll("[data-dl]").forEach((b) => b.addEventListener("click", () => download(b.dataset.dl)));
+$("dl-menu").addEventListener("toggle", () => {
+  $("dl-chan").disabled = !(S.chanCache && S.chanCache.has(S.chan));
+  $("dl-chan").textContent = `Channel ${S.chan ?? ""} as CSV (layers by tokens)`;
+  $("dl-vec").textContent = `Every channel at token ${S.pos ?? ""} as CSV (layers by channels)`;
+  $("dl-vec").disabled = !S.vec;
+});
 document.addEventListener("click", (e) => { if (!$("dl-menu").contains(e.target)) $("dl-menu").open = false; });
-addEventListener("resize", () => { if (S.analysis && currentTab() === "p-act") drawHeat(); });
+addEventListener("resize", () => { if (S.analysis && currentTab() === "p-act") { drawHeat(); S.vecGeom = null; drawVec(); } });
 
-// ------------------------------------------------------------------ weights
+// ------------------------------------------------------------------ weights and the model card
+const TOWER_RE = /vision|visual|audio|image|multi_modal|mm_/i;
 async function loadWeights() {
-  if (S.weights || !(S.status && S.status.model)) { renderWeightList(); return; }
-  try { S.weights = await api("/api/weights"); } catch (e) { $("w-count").textContent = e.message; return; }
-  renderWeightList();
+  const m = S.status && S.status.model;
+  if (!m) { renderCard(); renderWeightList(); return; }
+  const jobs = [];
+  if (!S.weights) jobs.push(api("/api/weights").then((w) => { S.weights = w; S.wIndex = null; }).catch((e) => { $("w-count").textContent = e.message; }));
+  if (!S.card) jobs.push(api("/api/card").then((c) => { S.card = c; S.wIndex = null; }).catch((e) => { S.cardError = e.message; }));
+  await Promise.all(jobs);
+  renderCard(); renderWeightList();
+  if (S.card && !S.readme && !S.readmeLoading) {
+    S.readmeLoading = true;
+    api("/api/card/readme").then((r) => { S.readme = r; }).catch((e) => { S.readme = { text: null, error: e.message }; })
+      .finally(() => { S.readmeLoading = false; renderReadme(); });
+  }
+}
+// ---- card
+function renderCard() {
+  const c = S.card;
+  $("card-empty").hidden = !!c; $("card-body").hidden = !c; $("card-link").hidden = !(c && c.url);
+  $("card-empty").textContent = S.cardError || "Load a model to see its card.";
+  if (!c) { $("card-name").textContent = ""; return; }
+  $("card-name").textContent = c.model;
+  if (c.url) $("card-link").href = c.url;
+  const dl = $("card-facts"); dl.replaceChildren();
+  for (const f of c.facts) {
+    const v = typeof f.v === "number" ? (Number.isInteger(f.v) ? fmtInt.format(f.v) : String(f.v)) : String(f.v);
+    dl.append(el("dt", { text: f.k }), el("dd", {}, document.createTextNode(v), f.note ? el("span", { class: "note", text: f.note }) : null));
+  }
+  const host = $("card-parts"); host.replaceChildren();
+  const bytes = c.parts.reduce((a, p) => a + p.bytes, 0);
+  $("parts-sub").textContent = `${fmtCompact(c.total_params)} parameters, ${memSize(bytes / 2 ** 30)} in GPU memory.`;
+  for (const p of c.parts) {
+    const fill = el("div", { class: "fill" }); fill.style.width = Math.max(0.4, 100 * p.share).toFixed(2) + "%";
+    host.append(el("span", { text: p.part }), el("div", { class: "track", title: `${fmtInt.format(p.params)} parameters` }, fill),
+                el("span", { class: "v", text: `${fmtCompact(p.params)} (${p.share >= 0.01 ? nf(0).format(100 * p.share) : "<1"}%)` }));
+  }
+  $("card-config").textContent = JSON.stringify(c.config, null, 2);
+  renderReadme();
+}
+function renderReadme() {
+  const host = $("readme"), meta = $("readme-meta"), c = S.card; meta.replaceChildren();
+  if (!c) return;
+  const r = S.readme;
+  if (!r) { host.replaceChildren(el("p", { class: "hint", text: "Loading the README…" })); return; }
+  if (!r.text) {
+    host.replaceChildren(el("p", { class: "hint", text: c.url
+      ? "The README isn't on the cluster, and this session couldn't fetch it. Open the model's page on Hugging Face for the full card. Models you download from now on include it."
+      : "This folder has no README.md." }));
+    return;
+  }
+  const { body, fm } = splitFrontMatter(r.text);
+  for (const [k, label] of [["license", "License"], ["base_model", "Base model"], ["pipeline_tag", "Task"], ["library_name", "Library"], ["language", "Languages"]]) {
+    if (fm[k]) meta.append(el("div", {}, el("dt", { text: label }), el("dd", { text: Array.isArray(fm[k]) ? fm[k].slice(0, 8).join(", ") : fm[k] })));
+  }
+  host.replaceChildren(...renderMarkdown(body, c.url));
+  if (r.source === "fetched") host.append(el("p", { class: "hint", text: "Fetched from Hugging Face for this session." }));
+}
+function splitFrontMatter(text) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(text), fm = {};
+  if (!m) return { body: text, fm };
+  let key = null;
+  for (const line of m[1].split(/\r?\n/)) {
+    const kv = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line), item = /^\s*-\s+(.*)$/.exec(line);
+    if (kv) { key = kv[1]; fm[key] = kv[2].replace(/^["']|["']$/g, "") || []; }
+    else if (item && key) { if (!Array.isArray(fm[key])) fm[key] = []; fm[key].push(item[1].replace(/^["']|["']$/g, "")); }
+  }
+  return { body: text.slice(m[0].length), fm };
+}
+// A small Markdown renderer for model cards. It builds DOM nodes (no innerHTML), drops raw HTML tags,
+// and only links to http(s) addresses; relative links point at the model's page.
+function renderMarkdown(src, base) {
+  src = src.replace(/<!--[\s\S]*?-->/g, "").replace(/<br\s*\/?>/gi, "\n").replace(/<\/?[A-Za-z][^>]*>/g, "");
+  const lines = src.split(/\r?\n/), out = [];
+  let para = [];
+  const flush = () => { if (para.length) { out.push(el("p", {}, ...inlineMd(para.join(" "), base))); para = []; } };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*```/.test(line)) {
+      flush(); const code = [];
+      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) code.push(lines[i]);
+      out.push(el("pre", {}, el("code", { text: code.join("\n") }))); continue;
+    }
+    const h = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    if (h) { flush(); out.push(el("h" + Math.min(6, h[1].length + 2), {}, ...inlineMd(h[2], base))); continue; }
+    if (/^\s*(\*\s*){3,}$|^\s*(-\s*){3,}$|^\s*(_\s*){3,}$/.test(line)) { flush(); out.push(el("hr")); continue; }
+    if (/^\s*\|/.test(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+      flush(); const cells = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((x) => x.trim());
+      const table = el("table"), head = el("tr");
+      cells(line).forEach((c) => head.append(el("th", {}, ...inlineMd(c, base))));
+      table.append(el("thead", {}, head)); const tb = el("tbody");
+      for (i += 2; i < lines.length && /^\s*\|/.test(lines[i]); i++) { const tr = el("tr"); cells(lines[i]).forEach((c) => tr.append(el("td", {}, ...inlineMd(c, base)))); tb.append(tr); }
+      i--; table.append(tb); out.push(table); continue;
+    }
+    const li = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(line);
+    if (li) {
+      flush(); const ordered = /\d/.test(li[1]), list = el(ordered ? "ol" : "ul");
+      for (; i < lines.length; i++) {
+        const m = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(lines[i]);
+        if (m) list.append(el("li", {}, ...inlineMd(m[2], base)));
+        else if (/^\s{2,}\S/.test(lines[i]) && list.lastChild) list.lastChild.append(" ", ...inlineMd(lines[i].trim(), base));
+        else break;
+      }
+      i--; out.push(list); continue;
+    }
+    const bq = /^\s*>\s?(.*)$/.exec(line);
+    if (bq) { flush(); out.push(el("blockquote", {}, ...inlineMd(bq[1], base))); continue; }
+    if (!line.trim()) { flush(); continue; }
+    para.push(line.trim());
+  }
+  flush();
+  return out.length ? out : [el("p", { class: "hint", text: "The README is empty." })];
+}
+function inlineMd(text, base) {
+  const nodes = [], re = /(`[^`]+`)|(!?)\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*\s][^*]*)\*|\b_([^_\s][^_]*)_\b|(https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"])/g;
+  let last = 0, m;
+  const href = (u) => (/^https?:\/\//i.test(u) ? u : base && !/^[a-z]+:/i.test(u) && !u.startsWith("#") ? `${base}/blob/main/${u.replace(/^\.?\//, "")}` : null);
+  while ((m = re.exec(text))) {
+    if (m.index > last) nodes.push(document.createTextNode(text.slice(last, m.index)));
+    if (m[1]) nodes.push(el("code", { text: m[1].slice(1, -1) }));
+    else if (m[4] !== undefined) {
+      const u = href(m[4]), label = m[2] ? (m[3] ? `[image: ${m[3]}]` : "[image]") : m[3];
+      nodes.push(u ? el("a", { href: u, target: "_blank", rel: "noopener noreferrer", text: label }) : document.createTextNode(label));
+    } else if (m[5] || m[6]) nodes.push(el("strong", { text: m[5] || m[6] }));
+    else if (m[7] || m[8]) nodes.push(el("em", { text: m[7] || m[8] }));
+    else if (m[9]) nodes.push(el("a", { href: m[9], target: "_blank", rel: "noopener noreferrer", text: m[9] }));
+    last = re.lastIndex;
+  }
+  if (last < text.length) nodes.push(document.createTextNode(text.slice(last)));
+  return nodes;
+}
+// ---- parameter lists
+function weightIndex() {
+  if (S.wIndex) return S.wIndex;
+  const lp = S.card ? S.card.layers_path + "." : null, byLayer = new Map(), outer = [];
+  for (const p of S.weights.params) {
+    if (lp && p.name.startsWith(lp)) {
+      const rest = p.name.slice(lp.length), k = rest.indexOf("."), idx = Number(rest.slice(0, k));
+      if (Number.isInteger(idx)) { if (!byLayer.has(idx)) byLayer.set(idx, []); byLayer.get(idx).push({ ...p, rel: rest.slice(k + 1), layer: idx }); continue; }
+    }
+    outer.push(p);
+  }
+  S.wIndex = { lp, byLayer, outer, n: byLayer.size };
+  return S.wIndex;
+}
+const wMode = () => document.querySelector("input[name=wmode]:checked").value;
+const typeName = (t) => (t ? t.replace(/_attention$/, "").replace(/_/g, " ") + (t.endsWith("_attention") ? " attention" : "") : "");
+function paramButton(p, label) {
+  const b = el("button", { type: "button", "aria-pressed": String(p.name === S.wSelected) },
+    el("span", { class: "n", text: label || p.name }), el("span", { class: "s", text: `[${p.shape.map((x) => fmtInt.format(x)).join(" × ")}]  ${fmtCompact(p.numel)} values` }));
+  b.addEventListener("click", () => selectWeight(p.name));
+  return el("li", {}, b);
 }
 function renderWeightList() {
-  const ul = $("w-list"); ul.replaceChildren();
-  if (!S.weights) { $("w-count").textContent = "Load a model to list its parameters."; return; }
+  const mode = wMode();
+  $("w-by-layer").hidden = mode !== "layer"; $("w-all").hidden = mode !== "all";
+  for (const id of ["w-list", "w-layer-list", "w-outer-list"]) $(id).replaceChildren();
+  if (!S.weights) { $("w-count").textContent = "Load a model to list its parameters."; $("w-layer-note").textContent = "Load a model to list its parameters."; return; }
+  // full list
   const q = $("w-filter").value.trim().toLowerCase();
   const rows = S.weights.params.filter((p) => !q || p.name.toLowerCase().includes(q));
   $("w-count").textContent = `${fmtInt.format(rows.length)} of ${fmtInt.format(S.weights.params.length)} parameters`;
-  for (const p of rows.slice(0, 2000)) {
-    const b = el("button", { type: "button", "aria-pressed": String(p.name === S.wSelected) },
-      el("span", { class: "n", text: p.name }), el("span", { class: "s", text: `[${p.shape.map((x) => fmtInt.format(x)).join(" × ")}]  ${p.dtype}` }));
-    b.addEventListener("click", () => selectWeight(p.name));
-    ul.append(el("li", {}, b));
+  for (const p of rows.slice(0, 2000)) $("w-list").append(paramButton(p));
+  // by layer
+  const ix = weightIndex(), sel = $("w-layer"), lt = (S.card && S.card.layer_types) || [];
+  if (!ix.n) { $("w-layer-note").textContent = "Couldn't find the layers; use the full list."; return; }
+  if (S.wLayer == null || S.wLayer >= ix.n) S.wLayer = 0;
+  if (sel.options.length !== ix.n) {
+    sel.replaceChildren(...[...ix.byLayer.keys()].sort((a, b) => a - b).map((i) => el("option", { value: i, text: lt[i] ? `${i} (${typeName(lt[i])})` : String(i) })));
   }
+  sel.value = S.wLayer;
+  for (const p of ix.byLayer.get(S.wLayer) || []) $("w-layer-list").append(paramButton(p, p.rel));
+  const groups = (S.card && S.card.layer_groups) || [];
+  const mine = groups.find((g) => g.layers.includes(S.wLayer));
+  $("w-layer-note").textContent = groups.length <= 1
+    ? `All ${ix.n} layers have the same parts and shapes. These are the parts of layer ${S.wLayer}.`
+    : `Layer ${S.wLayer}${lt[S.wLayer] ? ` is a ${typeName(lt[S.wLayer])} layer. It` : ""} has the same parts as ${mine && /[–,]/.test(mine.range) ? "layers " + mine.range : "no other layer"}. ` +
+      `There are ${groups.length} layouts: ${groups.map((g) => `${/[–,]/.test(g.range) ? "layers" : "layer"} ${g.range}${g.type ? " (" + typeName(g.type) + ")" : ""}`).join("; ")}.`;
+  const outer = ix.outer.filter((p) => !TOWER_RE.test(p.name)), towers = ix.outer.length - outer.length;
+  for (const p of outer) $("w-outer-list").append(paramButton(p));
+  $("w-outer-note").textContent = towers ? `Plus ${fmtInt.format(towers)} parameters in the vision and audio encoders. Find them in the full list.` : "";
 }
 $("w-filter").addEventListener("input", renderWeightList);
+document.querySelectorAll("input[name=wmode]").forEach((r) => r.addEventListener("change", renderWeightList));
+$("w-layer").addEventListener("change", () => { S.wLayer = Number($("w-layer").value); switchLayerSelection(); });
+$("w-prev").addEventListener("click", () => { if (S.wLayer > 0) { S.wLayer--; switchLayerSelection(); } });
+$("w-next").addEventListener("click", () => { const n = weightIndex().n; if (S.wLayer < n - 1) { S.wLayer++; switchLayerSelection(); } });
+// Moving to another layer keeps the same part selected, so you can step through depth.
+function switchLayerSelection() {
+  const ix = weightIndex(), cur = S.wSelected && S.wSelected.startsWith(ix.lp) ? S.wSelected.slice(ix.lp.length).replace(/^\d+\./, "") : null;
+  renderWeightList();
+  const target = cur && (ix.byLayer.get(S.wLayer) || []).find((p) => p.rel === cur);
+  if (target) selectWeight(target.name);
+}
 async function selectWeight(name) {
-  S.wSelected = name; renderWeightList();
+  S.wSelected = name;
+  const ix = S.weights ? weightIndex() : null, inLayer = ix && ix.lp && name.startsWith(ix.lp);
+  if (inLayer) S.wLayer = Number(name.slice(ix.lp.length).split(".")[0]);
+  renderWeightList();
   $("w-empty").hidden = true; $("w-body").hidden = false; $("w-name").textContent = name;
   $("w-stats").replaceChildren(); $("hist").replaceChildren(); $("sv").replaceChildren(); $("sv-copied").textContent = "";
+  const rel = inLayer ? name.slice(ix.lp.length).replace(/^\d+\./, "") : null;
+  $("w-across").hidden = !rel;
+  if (rel) {
+    $("w-across-btn").replaceChildren(document.createTextNode("Compare "), el("code", { text: rel }), document.createTextNode(` in all ${ix.n} layers`));
+    $("w-across-btn").onclick = () => runAcross(rel);
+    $("w-across-sub").textContent = "Size and spectrum of this matrix in every layer, to see how it changes with depth. The largest singular value is estimated with power iteration.";
+    if (S.across && S.across.rel === rel) drawAcross(); else { $("w-across-charts").replaceChildren(); $("w-across-legend").replaceChildren(); showMsg("w-across-msg", ""); }
+  }
   $("w-body").style.opacity = .5;
   try {
     const r = await runTask("/api/weights/stats", { name }, (t) => showMsg("w-msg", t.progress || ""));
@@ -1083,6 +1899,65 @@ async function selectWeight(name) {
     renderWeightStats(r);
   } catch (e) { showMsg("w-msg", e.message, "error"); }
   finally { $("w-body").style.opacity = 1; }
+}
+async function runAcross(rel) {
+  $("w-across-btn").disabled = true; $("w-across-progress").hidden = false; showMsg("w-across-msg", "");
+  try {
+    const r = await runTask("/api/weights/across", { rel }, (t) => { setBar("w-across-progress", t.fraction); $("w-across-ptext").textContent = t.progress || ""; });
+    if (r) { S.across = r; drawAcross(); }
+  } catch (e) { showMsg("w-across-msg", e.message, "error"); }
+  finally { $("w-across-btn").disabled = false; $("w-across-progress").hidden = true; }
+}
+const LAYER_COLORS = { full_attention: "#2a78d6", sliding_attention: "#eb6834", linear_attention: "#1baf7a", chunked_attention: "#eda100" };
+function drawAcross() {
+  const r = S.across, host = $("w-across-charts"); host.replaceChildren();
+  const has2d = r.rows.some((x) => x.spectral != null);
+  const metrics = has2d ? [["frobenius", "Frobenius norm"], ["spectral", "Largest singular value"], ["stable_rank", "Stable rank"]]
+                        : [["frobenius", "Frobenius norm"], ["rms", "Root mean square"], ["max_abs", "Largest absolute value"]];
+  const types = [...new Set(r.rows.map((x) => x.type).filter(Boolean))];
+  const lg = $("w-across-legend"); lg.replaceChildren();
+  if (types.length > 1) for (const t of types) {
+    const sw = el("span", { style: `display:inline-block;width:10px;height:10px;border-radius:50%;background:${LAYER_COLORS[t] || "#5b6672"}` });
+    lg.append(el("span", { style: "display:inline-flex;gap:5px;align-items:center;margin-right:14px" }, sw, document.createTextNode(typeName(t) + " layers")));
+  }
+  for (const [key, title] of metrics) host.append(lineChart(r, key, title, types.length > 1));
+  const missing = r.rows.filter((x) => x.frobenius == null).length;
+  if (missing) host.append(el("p", { class: "hint", text: `${missing} layer${missing === 1 ? " doesn't" : "s don't"} have this part.` }));
+}
+function lineChart(r, key, title, colorByType) {
+  const pts = r.rows.filter((x) => x[key] != null), wrap = el("div");
+  wrap.append(el("p", { class: "chart-title", text: title }));
+  if (!pts.length) { wrap.append(el("p", { class: "hint", text: "Not available." })); return wrap; }
+  const W = 300, H = 170, m = { l: 48, r: 10, t: 8, b: 26 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const n = r.rows.length, lo0 = Math.min(...pts.map((p) => p[key])), hi0 = Math.max(...pts.map((p) => p[key]));
+  const pad = (hi0 - lo0) * 0.08 || Math.abs(hi0) * 0.05 || 1, lo = lo0 - pad, hi = hi0 + pad;
+  const xs = (i) => (n > 1 ? (i / (n - 1)) * pw : pw / 2), ys = (v) => ph - ((v - lo) / (hi - lo)) * ph;
+  const s = svg("svg", { width: "100%", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${title} of ${r.rel} for each layer` });
+  const g = svg("g", { transform: `translate(${m.l},${m.t})` }); s.append(g);
+  for (const v of niceTicks(lo, hi, 3)) {
+    const y = ys(v); g.append(svg("line", { x1: 0, x2: pw, y1: y + .5, y2: y + .5, stroke: "#e1e0d9" }));
+    const t = svg("text", { x: -6, y: y + 4, "text-anchor": "end", "font-size": 10, fill: "#898781" }); t.textContent = fmt(v, 3); g.append(t);
+  }
+  g.append(svg("line", { x1: 0, x2: pw, y1: ph + .5, y2: ph + .5, stroke: "#c3c2b7" }));
+  for (const v of niceTicks(0, n - 1, 4)) { const t = svg("text", { x: xs(v), y: ph + 16, "text-anchor": "middle", "font-size": 10, fill: "#898781" }); t.textContent = v; g.append(t); }
+  let d = ""; pts.forEach((p, i) => { d += (i ? "L" : "M") + xs(p.layer).toFixed(1) + "," + ys(p[key]).toFixed(1); });
+  g.append(svg("path", { d, fill: "none", stroke: "#2a78d6", "stroke-width": 2, "stroke-linejoin": "round" }));
+  for (const p of pts) {
+    const sel = p.layer === S.wLayer;
+    g.append(svg("circle", { cx: xs(p.layer), cy: ys(p[key]), r: sel ? 5 : n > 40 ? 2.5 : 3.5,
+      fill: colorByType ? (LAYER_COLORS[p.type] || "#5b6672") : "#2a78d6", stroke: sel ? "#b3a369" : "#fff", "stroke-width": sel ? 2.5 : 1 }));
+  }
+  const cross = svg("line", { y1: 0, y2: ph, stroke: "#898781", visibility: "hidden" }); g.append(cross);
+  const hit = svg("rect", { x: 0, y: 0, width: pw, height: ph, fill: "transparent", style: "cursor:pointer" });
+  const nearest = (e) => { const b = hit.getBoundingClientRect(), li = Math.round(((e.clientX - b.left) / b.width) * (n - 1)); return r.rows[Math.max(0, Math.min(n - 1, li))]; };
+  hit.addEventListener("pointermove", (e) => {
+    const p = nearest(e); cross.setAttribute("x1", xs(p.layer)); cross.setAttribute("x2", xs(p.layer)); cross.setAttribute("visibility", "visible");
+    showTip(e, p[key] == null ? "–" : fmt(p[key], 4), `Layer ${p.layer}${p.type ? ", " + typeName(p.type) : ""}. Click to open it.`);
+  });
+  hit.addEventListener("pointerleave", () => { hideTip(); cross.setAttribute("visibility", "hidden"); });
+  hit.addEventListener("click", (e) => { const p = nearest(e), ix = weightIndex(); if (p.frobenius != null) selectWeight(`${ix.lp}${p.layer}.${r.rel}`); });
+  g.append(hit); wrap.append(s);
+  return wrap;
 }
 function renderWeightStats(r) {
   const g = $("w-stats"); g.replaceChildren();
@@ -1189,7 +2064,7 @@ $("sv-copy").addEventListener("click", async () => {
 (async function init() {
   await refreshStatus();
   await refreshModels();
-  if (S.status && S.status.model) onModelChanged(S.status.model);
+  if (S.status && S.status.model) onModelChanged(S.status.model); else refreshPrompts();
   setInterval(refreshStatus, 5000);
 })();
 </script>

@@ -14,7 +14,7 @@ import threading
 import time
 from pathlib import Path
 
-PATTERNS = ["*.json", "*.safetensors", "*.model", "*.txt", "*.jinja", "*.tiktoken"]
+PATTERNS = ["*.json", "*.safetensors", "*.model", "*.txt", "*.jinja", "*.tiktoken", "README.md"]
 IGNORE = ["*/*"]  # skip subfolders
 REPO_RE = r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$"
 

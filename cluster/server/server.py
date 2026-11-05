@@ -128,6 +128,42 @@ def find_structure(model):
             "norm": norm, "norm_path": norm_path, "head": head, "softcap": softcap}
 
 
+def cget(cfg, key, default=None):
+    """getattr that never raises: some configs (Gemma 4) refuse per-layer attributes at the top level."""
+    try:
+        return getattr(cfg, key)
+    except Exception:  # noqa: BLE001
+        return default
+
+
+def ranges(nums):
+    """[0,1,2,5,6,9] -> '0–2, 5–6, 9'"""
+    out, start, prev = [], None, None
+    for n in list(nums) + [None]:
+        if start is None:
+            start = prev = n
+        elif n is not None and n == prev + 1:
+            prev = n
+        else:
+            out.append(str(start) if start == prev else f"{start}–{prev}")
+            start = prev = n
+    return ", ".join(out)
+
+
+def tensor_bytes(t):
+    return t.numel() * t.element_size() if torch.is_tensor(t) else 0
+
+
+def nested_bytes(x):
+    if torch.is_tensor(x):
+        return tensor_bytes(x)
+    if isinstance(x, dict):
+        return sum(nested_bytes(v) for v in x.values())
+    if isinstance(x, (list, tuple)):
+        return sum(nested_bytes(v) for v in x)
+    return 0
+
+
 def bf16_bytes(folder):
     """Bytes the model will take on the GPU in bf16, read from the safetensors headers (no weights loaded)."""
     total = 0
@@ -176,6 +212,12 @@ class Lab:
         self.httpd = None
         self.ended = None
         self.tokstr_cache = {}
+        self.special_ids = set()
+        self.folder = None
+        self.weights_bytes = 0
+        self.last = None          # the last analysis: residual stream kept on the CPU for channel views
+        self.last_gen = None      # memory facts from the last generation
+        self.readme = None
 
     # ---- activity and shutdown
     def touch(self):
@@ -348,6 +390,10 @@ class Lab:
         self.model = self.tok = self.structure = self.info = self.weights_index = None
         self.model_id = None
         self.tokstr_cache = {}
+        self.special_ids = set()
+        self.folder = None
+        self.weights_bytes = 0
+        self.last = self.last_gen = self.readme = None
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -399,7 +445,15 @@ class Lab:
         task["fraction"] = 1.0
         model.eval()
         self.model, self.tok, self.model_id = model, tok, ref
+        self.folder = folder if folder else (ref if is_path else None)
         self.structure = find_structure(model)
+        self.special_ids = set(tok.all_special_ids) | {
+            i for i, t in (getattr(tok, "added_tokens_decoder", None) or {}).items() if getattr(t, "special", False)}
+        seen = set()
+        for t in list(model.parameters()) + list(model.buffers()):
+            if t.data_ptr() not in seen:
+                seen.add(t.data_ptr())
+                self.weights_bytes += tensor_bytes(t)
         cfg = text_config(model)
         n_params = sum(p.numel() for p in model.parameters())
         gpu = self.gpu_info()
@@ -409,6 +463,8 @@ class Lab:
             "model_type": getattr(model.config, "model_type", None), "architecture": type(model).__name__,
             "dtype": str(model.dtype).replace("torch.", ""),
             "chat_template": bool(getattr(tok, "chat_template", None)),
+            "thinking_switch": "enable_thinking" in str(getattr(tok, "chat_template", "") or ""),
+            "weights_gb": self.weights_bytes / GiB,
             "instruct_guess": bool(re.search(r"(-it\b|instruct|chat)", ref, re.I)),
             "layers_path": self.structure["layers_path"], "final_norm": self.structure["norm_path"],
             "softcap": self.structure["softcap"], "load_seconds": time.time() - t0,
@@ -424,7 +480,7 @@ class Lab:
             raise UserError("Load a model first.")
 
     # ---- tokenization
-    def encode(self, prompt, chat=False, system="", thinking=False):
+    def encode(self, prompt, chat=False, system="", thinking=False, to_device=True):
         tok = self.tok
         if chat:
             if not getattr(tok, "chat_template", None):
@@ -450,7 +506,32 @@ class Lab:
                 [torch.ones(1, 1, dtype=enc["attention_mask"].dtype), enc["attention_mask"]], dim=1)
         if enc["input_ids"].shape[1] == 0:
             raise UserError("The prompt is empty.")
-        return {k: v.to(self.model.device) for k, v in enc.items() if k in ("input_ids", "attention_mask")}
+        return {k: (v.to(self.model.device) if to_device else v) for k, v in enc.items()
+                if k in ("input_ids", "attention_mask")}
+
+    def render_input(self, p):
+        """The exact tokens a prompt turns into, split into special tokens and ordinary text."""
+        if self.model is None or self.tok is None:
+            return {"segments": [], "count": 0, "special": 0, "cut": False,
+                    "unavailable": "Load a model to see exactly what it receives."}
+        enc = self.encode(str(p.get("prompt", "")), bool(p.get("chat")), str(p.get("system", "")),
+                          bool(p.get("thinking")), to_device=False)
+        ids = enc["input_ids"][0].tolist()
+        shown, segs, buf = ids[:8192], [], []
+
+        def flush():
+            if buf:
+                segs.append({"t": self.tok.decode(buf, skip_special_tokens=False), "s": False})
+                buf.clear()
+        for i in shown:
+            if i in self.special_ids:
+                flush()
+                segs.append({"t": str(self.tok.convert_ids_to_tokens(i)), "s": True})
+            else:
+                buf.append(i)
+        flush()
+        return {"segments": segs, "count": len(ids), "cut": len(ids) > len(shown),
+                "special": sum(1 for i in ids if i in self.special_ids)}
 
     def tokstr(self, i):
         s = self.tokstr_cache.get(i)
@@ -490,15 +571,23 @@ class Lab:
             kwargs.update(do_sample=False, temperature=None, top_p=None, top_k=None)
         box = {}
 
+        cuda = self.device == "cuda" and torch.cuda.is_available()
+
         def run():
             try:
                 with torch.no_grad():
-                    box["out"] = self.model.generate(**kwargs)
+                    out = self.model.generate(**kwargs, return_dict_in_generate=True)
+                box["seq"] = out.sequences
+                box["kv"] = self.kv_report(getattr(out, "past_key_values", None))
+                del out
             except Exception as e:  # noqa: BLE001
                 box["err"] = e
                 streamer.end()
 
         task["progress"] = "Generating"
+        if cuda:
+            torch.cuda.reset_peak_memory_stats()
+        base = torch.cuda.memory_allocated() if cuda else 0
         t0 = time.time()
         th = threading.Thread(target=run, daemon=True)
         th.start()
@@ -508,10 +597,260 @@ class Lab:
         if "err" in box:
             raise box["err"]
         seconds = time.time() - t0
-        n_new = int(box["out"].shape[1] - enc["input_ids"].shape[1]) if "out" in box else 0
-        return {"text": task["partial"], "new_tokens": n_new, "prompt_tokens": int(enc["input_ids"].shape[1]),
+        n_prompt = int(enc["input_ids"].shape[1])
+        n_new = int(box["seq"].shape[1] - n_prompt) if "seq" in box else 0
+        self.last_gen = {"prompt_tokens": n_prompt, "new_tokens": n_new, "at": time.time(),
+                         "peak_extra_gb": (torch.cuda.max_memory_allocated() - base) / GiB if cuda else None,
+                         "kv": box.get("kv")}
+        box.clear()
+        gc.collect()
+        return {"text": task["partial"], "new_tokens": n_new, "prompt_tokens": n_prompt,
                 "seconds": seconds, "tokens_per_s": n_new / seconds if seconds > 0 else None,
                 "stopped": bool(task["cancel"]), "model": self.model_id}
+
+    # ---- memory
+    def layer_types(self):
+        if self.model is None:
+            return None
+        lt = cget(text_config(self.model), "layer_types")
+        return list(lt) if lt else None
+
+    def kv_report(self, cache):
+        """Size of the KV cache that generate() built, layer by layer."""
+        if cache is None:
+            return None
+        layers = getattr(cache, "layers", None)
+        rows = []
+        if layers is not None:
+            for i, L in enumerate(layers):
+                k, v = getattr(L, "keys", None), getattr(L, "values", None)
+                extra = sum(nested_bytes(getattr(L, a, None)) for a in ("conv_states", "recurrent_states", "ssm_states"))
+                n = int(k.shape[-2]) if torch.is_tensor(k) and k.ndim >= 2 else 0
+                b = tensor_bytes(k) + (tensor_bytes(v) if v is not k else 0) + extra
+                rows.append({"layer": i, "kind": type(L).__name__, "tokens": n, "bytes": b})
+        elif hasattr(cache, "key_cache"):
+            for i, (k, v) in enumerate(zip(cache.key_cache, cache.value_cache)):
+                rows.append({"layer": i, "kind": "DynamicLayer", "tokens": int(k.shape[-2]),
+                             "bytes": tensor_bytes(k) + tensor_bytes(v)})
+        if not rows:
+            return None
+        lt = self.layer_types() or []
+        for r in rows:
+            r["type"] = lt[r["layer"]] if r["layer"] < len(lt) else None
+        longest = max(r["tokens"] for r in rows)
+        growing = [r for r in rows if r["tokens"] and r["tokens"] >= longest]
+        per_token = sum(r["bytes"] / r["tokens"] for r in growing)
+        return {"layers": rows, "total_bytes": sum(r["bytes"] for r in rows), "tokens": longest,
+                "per_token_bytes": per_token, "growing_layers": len(growing)}
+
+    def kv_estimate(self):
+        """Bytes of KV cache per extra token, from the config, for when nothing has been generated yet."""
+        d = self.text_config_dict()
+        n = d.get("num_hidden_layers") or 0
+        heads = d.get("num_attention_heads") or 1
+        kv = d.get("num_key_value_heads") or heads
+        hd = d.get("head_dim") or ((d.get("hidden_size") or 0) // heads)
+        per_layer = d.get("per_layer_config") or {}
+        lt = d.get("layer_types") or []
+        el = 2
+        total = 0
+        for i in range(n):
+            t = lt[i] if i < len(lt) else "full_attention"
+            if t in ("sliding_attention", "linear_attention", "chunked_attention"):
+                continue
+            o = per_layer.get(str(i), {}) if isinstance(per_layer, dict) else {}
+            k_, h_ = o.get("num_key_value_heads", kv), o.get("head_dim", hd)
+            total += 2 * k_ * h_ * el
+        return total or None
+
+    def memory(self):
+        out = {"cuda": False, "weights_gb": self.weights_bytes / GiB if self.model is not None else None,
+               "last_gen": self.last_gen, "model": self.model_id,
+               "kv_estimate_bytes": self.kv_estimate() if self.model is not None else None,
+               "analysis_cpu_gb": tensor_bytes(self.last["resid"]) / GiB if self.last else None}
+        if self.device == "cuda" and torch.cuda.is_available():
+            free, total = torch.cuda.mem_get_info()
+            alloc, reserved = torch.cuda.memory_allocated(), torch.cuda.memory_reserved()
+            w = self.weights_bytes if self.model is not None else 0
+            out.update({
+                "cuda": True, "name": torch.cuda.get_device_name(0), "total_gb": total / GiB, "free_gb": free / GiB,
+                "parts": [
+                    {"key": "weights", "gb": w / GiB},
+                    {"key": "working", "gb": max(0, alloc - w) / GiB},
+                    {"key": "cache", "gb": max(0, reserved - alloc) / GiB},
+                    {"key": "outside", "gb": max(0, (total - free) - reserved) / GiB},
+                ],
+                "busy": self.busy})
+        return out
+
+    # ---- model card
+    def text_config_dict(self):
+        if self.model is None:
+            return {}
+        d = self.model.config.to_dict()
+        return d.get("text_config") or d
+
+    def card(self):
+        self.require_model()
+        full = self.model.config.to_dict()
+        d = self.text_config_dict()
+        st = self.structure
+        facts = []
+
+        def add(label, value, note=None):
+            if value not in (None, "", [], {}):
+                facts.append({"k": label, "v": value, "note": note})
+        archs = full.get("architectures") or [type(self.model).__name__]
+        add("Architecture", archs[0], f"model_type {full.get('model_type')}")
+        add("Layers", st["n_layers"])
+        add("Width", d.get("hidden_size"), "Size of the residual stream, the vector each token carries between layers")
+        if d.get("num_experts"):
+            add("Experts", f"{d['num_experts']} experts, {d.get('num_experts_per_tok') or d.get('top_k_experts')} used per token",
+                f"Each expert's MLP width is {d.get('moe_intermediate_size')}" if d.get("moe_intermediate_size") else None)
+        add("MLP width", d.get("intermediate_size"), "Hidden size inside each feed-forward block")
+        heads, kv, hd = d.get("num_attention_heads"), d.get("num_key_value_heads"), d.get("head_dim")
+        if heads:
+            add("Attention heads", f"{heads} query, {kv or heads} key/value",
+                "Fewer key/value heads than query heads (grouped-query attention) makes the KV cache smaller"
+                if kv and kv < heads else None)
+        add("Head size", hd)
+        per = d.get("per_layer_config") or {}
+        lt = list(d.get("layer_types") or [])
+        if isinstance(per, dict) and per:
+            groups = {}
+            for k, o in per.items():
+                groups.setdefault(json.dumps(o, sort_keys=True), []).append(int(k))
+            words = {"head_dim": "head size {}", "num_key_value_heads": "{} key/value heads", "num_attention_heads": "{} query heads",
+                     "intermediate_size": "MLP width {}", "sliding_window": "window {}"}
+            for key, ls in groups.items():
+                o = json.loads(key)
+                kind = lt[ls[0]].replace("_", "-", 1).replace("_", " ") if ls[0] < len(lt) else None
+                bits = [words.get(k, k.replace("_", " ") + " {}").format(v) for k, v in o.items()]
+                many = len(ls) > 1
+                add(f"Different in layer{'s' if many else ''} {ranges(sorted(ls))}", ", ".join(bits).replace("1 key/value heads", "1 key/value head"),
+                    (f"These are the {kind} layers" if many else f"This is the {kind} layer") if kind else None)
+        if d.get("attention_k_eq_v"):
+            add("Keys and values", "Shared in full-attention layers", "attention_k_eq_v: the same projection serves as key and value")
+        if lt:
+            names = {"sliding_attention": f"sliding-window ({d.get('sliding_window'):,} tokens)" if d.get("sliding_window") else "sliding-window",
+                     "full_attention": "full attention", "linear_attention": "linear attention",
+                     "chunked_attention": "chunked attention"}
+            period = next((q for q in range(1, len(lt) + 1) if all(lt[i] == lt[i % q] for i in range(len(lt)))), len(lt))
+            if period < len(lt):
+                parts, prev, cnt = [], None, 0
+                for t in lt[:period] + [None]:
+                    if t == prev:
+                        cnt += 1
+                    else:
+                        if prev is not None:
+                            parts.append(f"{cnt} {names.get(prev, prev.replace('_', ' '))}")
+                        prev, cnt = t, 1
+                add("Layer pattern", ", then ".join(parts) + f", repeated {len(lt) // period} times",
+                    "Sliding-window layers only attend to recent tokens, so their KV cache stops growing")
+            else:
+                from collections import Counter
+                add("Layer types", ", ".join(f"{n} {names.get(t, t)}" for t, n in Counter(lt).items()))
+        add("Context length", f"{d['max_position_embeddings']:,} tokens" if d.get("max_position_embeddings") else None,
+            "The longest input the model was configured for")
+        add("Vocabulary", f"{d['vocab_size']:,} tokens" if d.get("vocab_size") else None)
+        rp = d.get("rope_parameters") or {}
+        if d.get("rope_theta"):
+            add("Rotary base", d["rope_theta"])
+        elif isinstance(rp, dict) and rp:
+            if "rope_theta" in rp:
+                add("Rotary base", rp["rope_theta"], rp.get("rope_type"))
+            else:
+                add("Rotary base", ", ".join(f"{k.replace('_attention', '')}: {v.get('rope_theta')}" for k, v in rp.items()
+                                             if isinstance(v, dict)))
+        add("Activation", d.get("hidden_activation") or d.get("hidden_act") or d.get("activation_function"))
+        tied = d.get("tie_word_embeddings", full.get("tie_word_embeddings"))
+        add("Tied embeddings", None if tied is None else ("Yes" if tied else "No"),
+            "Yes means the output head reuses the input embedding matrix")
+        add("Logit softcap", d.get("final_logit_softcapping"), "Final logits are squashed with tanh to stay within this value")
+        add("Norm epsilon", d.get("rms_norm_eps") or d.get("layer_norm_eps") or d.get("layer_norm_epsilon"))
+        add("Stored as", d.get("dtype") or full.get("dtype") or full.get("torch_dtype"))
+        extra = [k.replace("_config", "") for k in full if k.endswith("_config") and k != "text_config" and full[k]]
+        if extra:
+            add("Other parts", ", ".join(extra) + " encoder" + ("s" if len(extra) > 1 else ""),
+                "Loaded but not used by Probe Bench, which works with text")
+
+        # where the parameters are
+        lp = st["layers_path"] + "."
+        parts = {}
+        layer_sig = {}
+        for n, prm in self.model.named_parameters():
+            low = n.lower()
+            if any(x in low for x in ("vision", "visual", "audio", "image", "multi_modal", "mm_")):
+                part = "Vision and audio encoders"
+            elif n.startswith(lp):
+                idx, _, rel = n[len(lp):].partition(".")
+                layer_sig.setdefault(int(idx) if idx.isdigit() else idx, []).append((rel, tuple(prm.shape)))
+                r = rel.lower()
+                mod = r.rsplit(".", 2)[-2] if r.count(".") >= 1 else r
+                if "norm" in mod or mod.startswith("ln"):
+                    part = "Norms"
+                elif any(x in r for x in ("expert", "moe", "router", "gate.weight")) and "gate_proj" not in r:
+                    part = "Experts and router"
+                elif any(x in r for x in ("attn", "attention", "mixer")):
+                    part = "Attention"
+                elif any(x in r for x in ("mlp", "feed_forward", "ffn")):
+                    part = "MLP"
+                else:
+                    part = "Other layer parts"
+            elif any(x in low for x in ("embed", "wte", "wpe")):
+                part = "Embeddings"
+            elif "lm_head" in low or "output" in low.split(".")[0]:
+                part = "Output head"
+            elif "norm" in low:
+                part = "Norms"
+            else:
+                part = "Other"
+            e = parts.setdefault(part, {"part": part, "params": 0, "bytes": 0})
+            e["params"] += prm.numel()
+            e["bytes"] += tensor_bytes(prm)
+        total = sum(e["params"] for e in parts.values()) or 1
+        for e in parts.values():
+            e["share"] = e["params"] / total
+        groups = {}
+        for i, sig in layer_sig.items():
+            groups.setdefault(tuple(sig), []).append(i)
+        layer_groups = [{"layers": sorted(ls, key=lambda x: (isinstance(x, str), x)),
+                         "range": ranges(sorted(x for x in ls if isinstance(x, int))),
+                         "type": lt[ls[0]] if isinstance(ls[0], int) and ls[0] < len(lt) else None,
+                         "params": [{"rel": r, "shape": list(sh)} for r, sh in sig]}
+                        for sig, ls in groups.items()]
+        layer_groups.sort(key=lambda g: g["layers"][0] if isinstance(g["layers"][0], int) else 1e9)
+        url = None if (self.model_id or "").startswith("/") else f"https://huggingface.co/{self.model_id}"
+        return {"model": self.model_id, "url": url, "facts": facts,
+                "parts": sorted(parts.values(), key=lambda e: -e["params"]), "total_params": total,
+                "layers_path": st["layers_path"], "layer_types": lt or None, "layer_groups": layer_groups,
+                "config": full}
+
+    def card_readme(self):
+        """The model's README (its Hugging Face model card): from disk, or fetched once if online."""
+        self.require_model()
+        if self.readme is not None:
+            return self.readme
+        folder = Path(self.folder) if self.folder else None
+        text, source = None, None
+        if folder and (folder / "README.md").is_file():
+            text, source = (folder / "README.md").read_text(errors="replace"), "downloaded"
+        elif not (self.model_id or "").startswith("/"):
+            box = {}
+
+            def fetch():
+                try:
+                    from huggingface_hub import hf_hub_download
+                    box["path"] = hf_hub_download(self.model_id, "README.md")
+                except Exception as e:  # noqa: BLE001
+                    box["err"] = str(e)
+            th = threading.Thread(target=fetch, daemon=True)
+            th.start()
+            th.join(10)
+            if box.get("path"):
+                text, source = Path(box["path"]).read_text(errors="replace"), "fetched"
+        self.readme = {"text": text[:400_000] if text else None, "source": source}
+        return self.readme
 
     # ---- activations
     def capture(self, enc):
@@ -580,11 +919,52 @@ class Lab:
                     used.update(row)
             final_top = torch.softmax(logits[0].float(), -1).argmax(-1).tolist()
         matches = lens_ids[-1] and [row[0] for row in lens_ids[-1]] == final_top
-        return {"model": self.model_id, "ids": ids, "tokens": [self.tokstr(i) for i in ids],
-                "vocab": {str(i): self.tokstr(i) for i in used}, "layers": len(resid) - 1,
+        task["progress"] = "Finding the largest channels"
+        stack = torch.stack([h[0] for h in resid]).cpu().float()      # [layers + 1, tokens, width]
+        del resid
+        aid = secrets.token_hex(4)
+        self.last = {"aid": aid, "resid": stack}
+        width = stack.shape[-1]
+        T = stack.shape[1]
+
+        def top(view, offset):
+            a = view.abs().reshape(-1, width)
+            mx, idx = a.max(0)
+            k = min(16, width)
+            vals, chans = mx.topk(k)
+            out = []
+            for v, c in zip(vals.tolist(), chans.tolist()):
+                flat = idx[c].item()
+                li, pos = divmod(flat, view.shape[1])
+                out.append({"c": c, "max_abs": round(v, 4), "layer": li, "pos": pos + offset,
+                            "value": round(view[li, pos, c].item(), 4)})
+            return out
+        top_any = top(stack, 0)
+        top_skip = top(stack[:, 1:, :], 1) if T >= 3 else top_any
+        return {"model": self.model_id, "aid": aid, "width": width, "top_channels": top_any,
+                "top_channels_skip": top_skip, "ids": ids, "tokens": [self.tokstr(i) for i in ids],
+                "vocab": {str(i): self.tokstr(i) for i in used}, "layers": stack.shape[0] - 1,
                 "norms": norms, "lens_ids": lens_ids, "lens_p": lens_p, "truncated": truncated,
                 "total_tokens": n_total, "max_tokens": MAX_ANALYZE_TOKENS, "lens_matches_output": bool(matches),
                 "chat": bool(p.get("chat"))}
+
+    def last_analysis(self, aid):
+        if not self.last or self.last["aid"] != aid:
+            raise UserError("These results are from an earlier analysis. Run Analyze again.")
+        return self.last["resid"]
+
+    def channel(self, aid, c):
+        r = self.last_analysis(aid)
+        if not 0 <= c < r.shape[-1]:
+            raise UserError(f"Pick a channel from 0 to {r.shape[-1] - 1}.")
+        vals = r[:, :, c].tolist()
+        return {"channel": c, "values": [[float(f"{v:.5g}") for v in row] for row in vals]}
+
+    def vector(self, aid, pos):
+        r = self.last_analysis(aid)
+        if not 0 <= pos < r.shape[1]:
+            raise UserError("That token isn't in the analysis.")
+        return r[:, pos, :].contiguous().numpy().astype("<f4").tobytes(), (r.shape[0], r.shape[-1])
 
     def do_export(self, task, p):
         enc, truncated, _ = self.analyze_inputs(p)
@@ -669,6 +1049,47 @@ class Lab:
         return result
 
 
+    def do_weight_across(self, task, rel):
+        """Size and spectrum summaries of the same matrix in every layer."""
+        self.require_model()
+        params = dict(self.model.named_parameters())
+        lp = self.structure["layers_path"]
+        n = self.structure["n_layers"]
+        lt = self.layer_types() or []
+        rows = []
+        for i in range(n):
+            task["fraction"] = i / n
+            task["progress"] = f"Layer {i} of {n - 1}"
+            if task["cancel"]:
+                raise Cancelled()
+            w = params.get(f"{lp}.{i}.{rel}")
+            row = {"layer": i, "type": lt[i] if i < len(lt) else None}
+            if w is None:
+                rows.append(row)
+                continue
+            wf = w.detach().float()
+            fro = wf.norm().item()
+            row.update({"frobenius": fro, "rms": fro / math.sqrt(wf.numel()), "max_abs": wf.abs().max().item(),
+                        "shape": list(w.shape)})
+            if wf.ndim == 2 and min(wf.shape) > 1:
+                g = torch.Generator(device=wf.device).manual_seed(0)
+                v = torch.randn(wf.shape[1], device=wf.device, generator=g)
+                v /= v.norm()
+                sigma = 0.0
+                for _ in range(40):
+                    u = wf @ v
+                    sigma = u.norm().item()
+                    if sigma == 0:
+                        break
+                    v = wf.t() @ (u / sigma)
+                    v /= v.norm()
+                row["spectral"] = sigma
+                row["stable_rank"] = (fro * fro) / (sigma * sigma) if sigma > 0 else None
+            del wf
+            rows.append(row)
+        return {"rel": rel, "rows": rows}
+
+
 # --------------------------------------------------------------------------- HTTP
 
 UNAUTHORIZED_PAGE = """<!doctype html><meta charset="utf-8"><title>Probe Bench</title>
@@ -715,6 +1136,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def send_bytes(self, data, extra=None):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
 
     def cookie_name(self):
         return f"pb_{self.lab.session_id}".replace("-", "_")
@@ -798,6 +1229,18 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/weights":
                 lab.require_model()
                 return self.send_json({"model": lab.model_id, "params": lab.weights_index})
+            if path == "/api/memory":
+                return self.send_json(lab.memory())
+            if path == "/api/card":
+                return self.send_json(lab.card())
+            if path == "/api/card/readme":
+                return self.send_json(lab.card_readme())
+            q = parse_qs(url.query)
+            if path == "/api/act/channel":
+                return self.send_json(lab.channel((q.get("aid") or [""])[0], int((q.get("c") or ["-1"])[0])))
+            if path == "/api/act/vector":
+                data, shape = lab.vector((q.get("aid") or [""])[0], int((q.get("pos") or ["-1"])[0]))
+                return self.send_bytes(data, {"X-Shape": f"{shape[0]},{shape[1]}"})
             if path.startswith("/api/exports/"):
                 return self.send_export(path.rsplit("/", 1)[1])
             return self.send_json({"error": "Not found"}, 404)
@@ -828,6 +1271,15 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"task": lab.start_task("analyze", lab.do_analyze, body)})
         if path == "/api/export":
             return self.send_json({"task": lab.start_task("export", lab.do_export, body)})
+        if path == "/api/render":
+            return self.send_json(lab.render_input(body))
+        if path == "/api/memory/release":
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            return self.send_json(lab.memory())
+        if path == "/api/weights/across":
+            return self.send_json({"task": lab.start_task("weights", lab.do_weight_across, str(body.get("rel", "")))})
         if path == "/api/weights/stats":
             return self.send_json({"task": lab.start_task("weights", lab.do_weight_stats, str(body.get("name", "")))})
         if path == "/api/cancel":
