@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""ssh calls this when it needs a password, a Duo choice or a key passphrase.
+It hands the question to the Probe Bench app, which shows it on the control page,
+and prints the answer for ssh. Nothing is stored."""
+import json
+import os
+import sys
+import urllib.request
+
+prompt = sys.argv[1] if len(sys.argv) > 1 else ""
+req = urllib.request.Request(
+    "http://127.0.0.1:%s/askpass" % os.environ.get("PB_PORT", "7850"),
+    data=json.dumps({"prompt": prompt}).encode(),
+    headers={"Content-Type": "application/json", "X-PB-Askpass": os.environ.get("PB_ASKPASS_KEY", ""),
+             "Host": "127.0.0.1:%s" % os.environ.get("PB_PORT", "7850")})
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+try:
+    with opener.open(req, timeout=900) as r:
+        sys.stdout.write(r.read().decode())
+except Exception:
+    sys.exit(1)

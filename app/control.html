@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Probe Bench</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  color-scheme: light;
+  --navy: #003057; --navy-hover: #0b416d; --gold: #b3a369; --gold-wash: #f4f0e2;
+  --ink: #1f2a36; --ink-2: #5b6672; --muted: #8b949e;
+  --page: #eef1f4; --panel: #fff; --rule: #d8dde3; --rule-soft: #e9ecf0;
+  --good: #0ca30c; --good-text: #006300; --warning: #fab219; --warn-text: #8a5a00; --critical: #d03b3b;
+  --sans: "Avenir Next", "Avenir", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font: 15px/1.55 var(--sans); color: var(--ink); background: var(--page); -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; color: var(--navy); font-weight: 600; }
+h2 { font-size: 18px; }
+h3 { font-size: 15px; }
+p { margin: 0; }
+a { color: var(--navy); }
+code { font-family: var(--mono); font-size: 13px; background: #f1f3f6; padding: 1px 4px; border-radius: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.btn { border: 1px solid var(--navy); background: var(--navy); color: #fff; border-radius: 5px; padding: 8px 16px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--navy-hover); }
+.btn[disabled] { opacity: .45; cursor: default; }
+.btn.quiet { background: #fff; color: var(--navy); }
+.btn.quiet:hover { background: #f2f5f8; }
+.btn.danger { background: #fff; color: var(--critical); border-color: #e4b9b9; }
+.btn.small { padding: 5px 12px; font-size: 14px; }
+.linkish { border: 0; background: none; color: var(--navy); padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+input[type=text], input[type=password], select { border: 1px solid var(--rule); border-radius: 5px; background: #fff; padding: 8px 10px; }
+input[type=text], input[type=password] { width: 100%; }
+input:focus, select:focus { border-color: var(--navy); outline: none; box-shadow: 0 0 0 1px var(--navy); }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.stack > * + * { margin-top: 12px; }
+.hint { color: var(--ink-2); font-size: 14px; }
+.msg { font-size: 14px; padding: 9px 12px; border-radius: 5px; border-left: 3px solid var(--rule); background: #f6f7f9; }
+.msg.error { border-left-color: var(--critical); background: #fbefef; }
+.msg.ok { border-left-color: var(--good); background: #eef8ee; }
+.msg.warn { border-left-color: var(--warning); background: #fdf6e6; }
+.msg:empty { display: none; }
+details > summary { cursor: pointer; color: var(--navy); }
+
+header.bar { display: flex; align-items: center; gap: 18px; padding: 12px 24px; background: #fff; border-bottom: 1px solid var(--rule); position: sticky; top: 0; z-index: 5; }
+header.bar h1 { font-size: 19px; }
+header.bar .spacer { flex: 1; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.good { background: var(--good); }
+.dot.bad { background: var(--critical); }
+.banner { padding: 12px 24px; border-bottom: 1px solid var(--rule); display: none; }
+.banner.show { display: block; }
+.banner.bad { background: #fbefef; }
+.banner.info { background: #fdf6e6; }
+
+main { max-width: 900px; margin: 0 auto; padding: 26px 20px 60px; }
+.panel { background: #fff; border: 1px solid var(--rule); border-radius: 8px; padding: 22px 24px; }
+.panel + .panel { margin-top: 18px; }
+.panel h2 { margin-bottom: 6px; }
+.lede { color: var(--ink-2); max-width: 68ch; }
+.intro h2 { font-size: 22px; margin-bottom: 8px; }
+
+/* progress bars */
+.progress { height: 8px; border-radius: 4px; background: #e1e8f0; overflow: hidden; }
+.progress > span { display: block; height: 100%; background: var(--navy); border-radius: 4px; transition: width .6s ease; }
+.progress.indeterminate > span { width: 28% !important; animation: slide 1.4s ease-in-out infinite; }
+@keyframes slide { from { margin-left: -28%; } to { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .progress.indeterminate > span { animation: none; width: 100% !important; opacity: .35; } .progress > span { transition: none; } }
+.ptext { display: flex; justify-content: space-between; gap: 12px; font-size: 13.5px; color: var(--ink-2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+
+/* setup steps */
+.overall { margin: 14px 0 6px; }
+.steps { list-style: none; padding: 0; margin: 18px 0 0; }
+.steps > li { display: grid; grid-template-columns: 28px 1fr; gap: 4px 12px; padding: 14px 0; border-top: 1px solid var(--rule-soft); }
+.icon { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--rule); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: #fff; margin-top: 1px; }
+.icon.running { border-color: var(--navy); border-right-color: transparent; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .icon.running { animation: none; border-right-color: var(--navy); } }
+.icon.done { background: var(--good); border-color: var(--good); }
+.icon.error { background: var(--critical); border-color: var(--critical); }
+.step-title { font-weight: 600; }
+.step-why { color: var(--ink-2); font-size: 14px; grid-column: 2; }
+.step-now { grid-column: 2; margin-top: 6px; font-size: 14px; }
+.step-now.error { color: var(--critical); }
+.step-bar { grid-column: 2; margin-top: 8px; }
+
+/* account form */
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+.field .hint { margin-top: 4px; }
+.account-form { display: grid; grid-template-columns: minmax(0, 340px) max-content; justify-content: start; gap: 10px; align-items: end; margin-top: 16px; }
+.account-help { margin-top: 16px; padding: 14px 16px; background: #f7f9fb; border-radius: 6px; border: 1px solid var(--rule-soft); }
+.account-help ol { margin: 8px 0 0; padding-left: 20px; }
+.account-help li + li { margin-top: 4px; }
+
+/* sizes */
+.sizes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.size { position: relative; border: 1px solid var(--rule); border-radius: 7px; padding: 14px 14px 12px; cursor: pointer; background: #fff; }
+.size:hover { border-color: #b8c2cc; }
+.size input { position: absolute; opacity: 0; pointer-events: none; }
+.size:has(input:checked) { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); background: #f8fafc; }
+.size:has(input:focus-visible) { outline: 2px solid var(--navy); outline-offset: 2px; }
+.size .t { font-weight: 600; color: var(--navy); }
+.size .b { font-size: 13.5px; color: var(--ink-2); margin-top: 4px; }
+.size .avail { font-size: 13.5px; margin-top: 8px; font-weight: 600; }
+.avail.free { color: var(--good-text); }
+.avail.busy { color: var(--warn-text); }
+
+/* sessions */
+.session { border: 1px solid var(--rule); border-radius: 7px; padding: 16px 18px; }
+.session + .session { margin-top: 12px; }
+.session.ready { border-color: #b9dcb9; background: #fbfefb; }
+.session-head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.session-head .t { font-weight: 600; font-size: 16px; }
+.session-head .meta { color: var(--ink-2); font-size: 13.5px; }
+.phases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 14px 0 10px; list-style: none; padding: 0; }
+.phases li { font-size: 13px; color: var(--muted); border-top: 3px solid var(--rule); padding-top: 6px; }
+.phases li.done { color: var(--ink-2); border-top-color: var(--good); }
+.phases li.now { color: var(--navy); font-weight: 600; border-top-color: var(--navy); }
+.phases li.error { color: var(--critical); border-top-color: var(--critical); }
+.why { font-size: 14px; color: var(--ink-2); margin-top: 8px; }
+.why + .why { margin-top: 4px; }
+.analysis { white-space: pre-wrap; font-family: var(--mono); font-size: 12.5px; background: #f7f9fb; border-radius: 5px; padding: 8px 10px; margin-top: 8px; color: var(--ink-2); }
+.facts { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 8px; font-size: 14px; }
+.facts span b { font-weight: 600; }
+.session .actions { margin-top: 14px; }
+
+/* models */
+.models { list-style: none; margin: 12px 0 0; padding: 0; border: 1px solid var(--rule); border-radius: 6px; }
+.models li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 12px; }
+.models li + li { border-top: 1px solid var(--rule-soft); }
+.models .size-t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.dl { margin-top: 12px; }
+.suggest { list-style: none; padding: 0; margin: 10px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
+.suggest li { border: 1px solid var(--rule-soft); border-radius: 6px; padding: 8px 10px; }
+.suggest .n { font-size: 13px; color: var(--ink-2); }
+.empty { color: var(--ink-2); }
+
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; margin-top: 12px; }
+.where { font-size: 14px; color: var(--ink-2); }
+.where dt { font-weight: 600; color: var(--ink); margin-top: 8px; }
+.where dd { margin: 0; }
+.log { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; background: #f7f9fb; border-radius: 5px; padding: 10px 12px; max-height: 260px; overflow: auto; margin-top: 8px; }
+footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: center; }
+
+/* prompt dialog */
+.scrim { position: fixed; inset: 0; background: rgba(16, 32, 48, .35); display: none; align-items: center; justify-content: center; z-index: 30; padding: 20px; }
+.scrim.show { display: flex; }
+.dialog { background: #fff; border-radius: 10px; padding: 24px 26px; width: min(460px, 100%); box-shadow: 0 10px 40px rgba(16, 32, 48, .25); }
+.dialog h2 { margin-bottom: 8px; }
+.dialog .text { color: var(--ink-2); white-space: pre-wrap; margin-bottom: 14px; }
+.duo-opts { display: grid; gap: 8px; margin-bottom: 14px; }
+.duo-opts .btn { text-align: left; }
+@media (max-width: 760px) {
+  .sizes { grid-template-columns: 1fr; }
+  .settings-grid, .account-form { grid-template-columns: 1fr; }
+  .phases { grid-template-columns: repeat(2, 1fr); }
+  header.bar { position: static; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Probe Bench</h1>
+  <span class="spacer"></span>
+  <span class="chip" id="account-chip"><span class="dot" id="acct-dot"></span><span id="acct-text">Starting</span></span>
+  <button class="btn small quiet" id="signin-top" type="button" hidden>Sign in</button>
+</header>
+<div class="banner bad" id="lost" role="alert">The Probe Bench app isn't running. Open <b>Probe Bench</b> from your Applications folder, then reload this page.</div>
+<div class="banner info" id="signed-out"><div class="row"><span>You're signed out of the cluster. Sign in to start or reach sessions. You'll need your Georgia Tech password and Duo, and it lasts 8 hours.</span><button class="btn small" id="signin-banner" type="button">Sign in</button></div><p class="msg error" id="signin-msg" style="margin-top:8px"></p></div>
+
+<main>
+  <!-- ======================= setup ======================= -->
+  <section id="setup-view" hidden>
+    <div class="panel intro">
+      <h2>Set up Probe Bench</h2>
+      <p class="lede">Probe Bench runs open-weight language models on the GPU cluster of Georgia Tech's School of Industrial and Systems Engineering (ISyE), and opens them in your browser so you can generate text and look inside them. Setting up takes a few minutes of your time, then about 10 to 30 minutes of waiting while the cluster prepares the software. You only do this once.</p>
+    </div>
+
+    <div class="panel" id="account-panel">
+      <h2>Your ISyE UNIX account</h2>
+      <p class="lede">The ISyE cluster needs its own account, called an ISyE UNIX account. It uses your regular Georgia Tech username and password, but it has to be requested separately, and someone at ISyE Computing has to turn on cluster access for it.</p>
+      <div class="account-help">
+        <b>Don't have one yet?</b>
+        <ol>
+          <li>Request it with the <a id="form-link" href="#" target="_blank" rel="noopener">ISyE UNIX account form</a>. Off campus, you may need to be on the Georgia Tech VPN to open the form.</li>
+          <li>It usually takes one or two days. You'll get an email when it's ready.</li>
+          <li>Email Kelley Ross at ISyE Computing (<a href="mailto:kelley.ross@isye.gatech.edu">kelley.ross@isye.gatech.edu</a>) your username and ask for GPU cluster access.</li>
+        </ol>
+      </div>
+      <div class="account-form">
+        <div class="field">
+          <label for="user">Georgia Tech username</label>
+          <input type="text" id="user" placeholder="gburdell3" autocomplete="username" spellcheck="false" autocapitalize="off">
+        </div>
+        <button class="btn" id="save-account" type="button">Continue</button>
+      </div>
+      <p class="hint" style="margin-top:6px">The part of your Georgia Tech email before @gatech.edu.</p>
+      <p class="msg error" id="account-msg" style="margin-top:10px"></p>
+    </div>
+
+    <div class="panel" id="steps-panel" hidden>
+      <h2>Connect this Mac to the cluster</h2>
+      <p class="lede">Each step runs on its own. You'll be asked for your password and a Duo approval once, at the start.</p>
+      <div class="overall">
+        <div class="progress" id="overall-bar"><span style="width:0"></span></div>
+        <div class="ptext"><span id="overall-text">Not started</span><span id="overall-pct"></span></div>
+      </div>
+      <ol class="steps" id="steps"></ol>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="run-setup" type="button">Start setup</button>
+        <button class="linkish" id="change-user" type="button">Use a different username</button>
+      </div>
+      <p class="msg error" id="setup-msg" style="margin-top:12px"></p>
+    </div>
+
+    <div class="panel" id="first-model" hidden>
+      <h2>Setup is done</h2>
+      <p class="lede">Probe Bench is ready. Before your first session, download a model to the cluster. Models are stored there, not on your Mac, and every session can use them. Gemma 4 12B, Google's 12-billion-parameter model, is a good first choice. It's about 22 GB and downloads in a job that doesn't use a GPU, typically in 5 to 15 minutes.</p>
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="first-dl" type="button">Download Gemma 4 12B</button>
+        <button class="btn quiet" id="go-home" type="button">Skip for now</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= home ======================= -->
+  <section id="home-view" hidden>
+    <div class="panel">
+      <h2>Start a GPU session</h2>
+      <p class="lede">A session reserves one GPU on the cluster and opens Probe Bench in your browser, where you load a model, generate text, and inspect activations and weights. HTCondor, the cluster's job scheduler, gives you the first free GPU that's big enough. If they're all busy, you wait in line.</p>
+      <div class="sizes" id="sizes" role="radiogroup" aria-label="GPU size"></div>
+      <div class="row">
+        <label class="hint" for="idle">End the session after</label>
+        <select id="idle">
+          <option value="15">15 minutes</option>
+          <option value="30" selected>30 minutes</option>
+          <option value="60">1 hour</option>
+          <option value="120">2 hours</option>
+          <option value="240">4 hours</option>
+        </select>
+        <span class="hint">with no activity, so an idle GPU goes back to others</span>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <button class="btn" id="start" type="button">Start session</button>
+        <span class="hint" id="gpu-updated"></span>
+      </div>
+      <p class="msg error" id="start-msg" style="margin-top:12px"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Your sessions</h2>
+      <div id="sessions" style="margin-top:12px"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Models on the cluster</h2>
+      <p class="lede">Models live in <code>~/hf_cache</code> in your cluster account, and every session can load them. Downloads run in a job that doesn't use a GPU.</p>
+      <div id="models"></div>
+      <div class="dl stack">
+        <div class="row">
+          <input type="text" id="dl-input" placeholder="Hugging Face name, like google/gemma-4-12B" spellcheck="false" style="flex:1; min-width: 240px" aria-label="Model to download">
+          <button class="btn quiet" id="dl-btn" type="button">Download</button>
+        </div>
+        <p class="msg error" id="dl-msg"></p>
+        <div id="downloads"></div>
+        <details>
+          <summary>Suggested models</summary>
+          <ul class="suggest" id="suggest"></ul>
+        </details>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Settings and help</h2>
+      <div class="settings-grid">
+        <div class="stack">
+          <h3>Account</h3>
+          <p class="hint" id="acct-line"></p>
+          <div class="row">
+            <label class="hint" for="gateway">Gateway</label>
+            <select id="gateway">
+              <option value="castle">castle.isye.gatech.edu</option>
+              <option value="keep">keep.isye.gatech.edu</option>
+            </select>
+          </div>
+          <p class="hint">ISyE's two gateways do the same job. If one is down, switch to the other.</p>
+          <div class="row">
+            <button class="btn small quiet" id="signout" type="button">Sign out</button>
+            <button class="btn small quiet" id="rerun-setup" type="button">Run setup again</button>
+          </div>
+        </div>
+        <div class="stack">
+          <h3>Gated models</h3>
+          <p class="hint">Some models, such as Llama, need you to accept a license on Hugging Face first. Then create a token at <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener">huggingface.co/settings/tokens</a> (Read access is enough) and save it here. It's stored only in your cluster account.</p>
+          <p class="hint" id="token-state"></p>
+          <div class="row">
+            <input type="password" id="token" placeholder="hf_…" autocomplete="off" style="flex:1; min-width: 160px" aria-label="Hugging Face token">
+            <button class="btn small quiet" id="save-token" type="button">Save token</button>
+          </div>
+          <p class="msg" id="token-msg"></p>
+        </div>
+      </div>
+      <dl class="where">
+        <dt>Where things are</dt>
+        <dd>On the cluster: Probe Bench in <code>~/probebench</code>, models in <code>~/hf_cache</code>, saved activations in <code>~/probebench/exports</code>.</dd>
+        <dd>On this Mac: the app's files in <code>~/Library/Application Support/ProbeBench</code>, and SSH settings in <code>~/.ssh/config</code>.</dd>
+        <dt>Getting help</dt>
+        <dd>For cluster problems, email helpdesk@isye.gatech.edu and include the activity log below. Never send your password.</dd>
+      </dl>
+      <details style="margin-top:12px">
+        <summary>Activity log</summary>
+        <div class="log" id="log"></div>
+      </details>
+    </div>
+    <footer>Probe Bench keeps running when you close this tab. Quitting Probe Bench from the Dock ends your sessions and frees the GPUs.</footer>
+  </section>
+</main>
+
+<div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+  <div class="dialog">
+    <h2 id="dlg-title"></h2>
+    <p class="text" id="dlg-text"></p>
+    <div class="duo-opts" id="dlg-opts"></div>
+    <form id="dlg-form" class="stack">
+      <input type="password" id="dlg-input" autocomplete="off" aria-label="Answer">
+      <div class="row"><button class="btn" type="submit" id="dlg-ok">Continue</button><button class="btn quiet" type="button" id="dlg-cancel">Cancel</button></div>
+    </form>
+    <p class="hint" id="dlg-after" hidden>Waiting for Duo. Approve the request on your phone.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) n.append(k);
+  return n;
+}
+function showMsg(id, text, kind = "error") { const m = $(id); m.textContent = text || ""; m.className = "msg " + (text ? kind : ""); }
+function dur(sec) {
+  sec = Math.max(0, Math.round(sec));
+  if (sec < 60) return `${sec} s`;
+  const m = Math.floor(sec / 60), s = sec % 60;
+  if (m < 60) return s && m < 10 ? `${m} min ${s} s` : `${m} min`;
+  return `${Math.floor(m / 60)} h ${m % 60} min`;
+}
+function bar(fraction) {
+  const b = el("div", { class: "progress" + (fraction == null ? " indeterminate" : "") }, el("span"));
+  if (fraction != null) b.firstChild.style.width = (100 * Math.max(0.02, Math.min(1, fraction))).toFixed(1) + "%";
+  return b;
+}
+async function api(path, body) {
+  const opt = { credentials: "same-origin", headers: {} };
+  if (body !== undefined) { opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`);
+  return j;
+}
+
+let S = null, clock = 0, homeForced = false, lastLog = "";
+const sessionSig = {};
+
+// ------------------------------------------------------------ polling
+async function poll() {
+  try {
+    const st = await api("/api/state");
+    clock = st.sessions.length ? st.sessions[0].now - Date.now() / 1000 : 0;
+    S = st; $("lost").classList.remove("show"); render();
+  } catch (e) { $("lost").classList.add("show"); }
+}
+const serverNow = () => Date.now() / 1000 + clock;
+
+function render() {
+  const st = S;
+  // header
+  $("acct-dot").className = "dot " + (st.signed_in ? "good" : "");
+  $("acct-text").textContent = st.user ? (st.signed_in ? `Signed in as ${st.user}` : `${st.user}, signed out`) : "Not set up";
+  const showHome = st.setup_done && (homeForced || !st.ops.setup || st.ops.setup.status !== "running");
+  const firstModel = st.setup_done && !homeForced && st.ops.setup && st.ops.setup.status === "done" && !(st.cluster && st.cluster.models.length);
+  $("setup-view").hidden = showHome && !firstModel;
+  $("home-view").hidden = !showHome || firstModel;
+  const signinBusy = st.ops.signin && st.ops.signin.status === "running";
+  $("signin-top").hidden = !st.configured || st.signed_in || !st.setup_done;
+  $("signed-out").classList.toggle("show", st.setup_done && !st.signed_in && !firstModel);
+  $("signin-banner").disabled = $("signin-top").disabled = signinBusy;
+  $("signin-banner").textContent = signinBusy ? "Signing in" : "Sign in";
+  if (st.ops.signin && st.ops.signin.status === "error") showMsg("signin-msg", st.ops.signin.error); else showMsg("signin-msg", "");
+  renderPrompt(st.prompt, st);
+  if (!$("setup-view").hidden) renderSetup(st, firstModel);
+  if (!$("home-view").hidden) renderHome(st);
+}
+
+// ------------------------------------------------------------ setup
+const STEPS = [
+  ["signin", "Sign in to the cluster",
+   "Probe Bench connects through castle.isye.gatech.edu, ISyE's gateway, the same way any Georgia Tech login works: your password, then Duo. You stay signed in for 8 hours."],
+  ["key", "Set up your SSH key",
+   "An SSH key is a pair of files that proves this Mac is yours. Probe Bench creates one in ~/.ssh if you don't have one and adds it to your ISyE account, so the connections it makes for you don't each need your password."],
+  ["copy", "Copy Probe Bench to the cluster",
+   "The cluster-side scripts go into a probebench folder in your cluster home directory. This takes a few seconds."],
+  ["container", "Prepare the software",
+   "Probe Bench runs inside a container, a packaged copy of Python, PyTorch and Hugging Face Transformers. The cluster builds it once in a job that doesn't use a GPU. You can leave this page open while it runs."],
+];
+function renderSetup(st, firstModel) {
+  $("form-link").href = st.account_form;
+  if (document.activeElement !== $("user") && !$("user").value && st.user) $("user").value = st.user;
+  const setupOp = st.ops.setup;
+  const running = setupOp && setupOp.status === "running";
+  $("account-panel").hidden = st.configured && !$("account-panel").dataset.editing;
+  $("steps-panel").hidden = !st.configured || firstModel;
+  $("first-model").hidden = !firstModel;
+  if (firstModel) return;
+  $("run-setup").disabled = running;
+  $("run-setup").textContent = running ? "Setting up" : (setupOp && setupOp.status === "error" ? "Try again" : "Start setup");
+  $("change-user").hidden = running;
+  showMsg("setup-msg", setupOp && setupOp.status === "error" ? setupOp.error : "");
+  const ol = $("steps"); ol.replaceChildren();
+  let doneCount = 0, curFrac = 0, current = null;
+  STEPS.forEach(([id, title, why], i) => {
+    const s = st.setup[id] || { status: "pending" };
+    if (s.status === "done") doneCount++;
+    if (s.status === "running") { current = i; curFrac = s.fraction || 0; }
+    const icon = el("span", { class: "icon " + s.status, "aria-hidden": "true", text: s.status === "done" ? "✓" : s.status === "error" ? "!" : "" });
+    const li = el("li", {}, icon, el("div", {}, el("span", { class: "step-title", text: title }),
+      el("span", { class: "sr-only", text: ` (${s.status})` })), el("p", { class: "step-why", text: why }));
+    if (s.status === "running" || s.status === "error" || (s.status === "done" && s.detail)) {
+      li.append(el("p", { class: "step-now" + (s.status === "error" ? " error" : ""), text: s.detail || "" }));
+    }
+    if (s.status === "running") {
+      const wrap = el("div", { class: "step-bar" }, bar(s.fraction));
+      const elapsed = s.started ? dur(serverNow() - s.started) : "";
+      wrap.append(el("div", { class: "ptext" }, el("span", { text: elapsed ? `Running for ${elapsed}` + (s.typical ? `. Usually takes ${s.typical}.` : "") : "" }),
+        el("span", { text: s.fraction != null ? `${Math.round(100 * s.fraction)}%` : "" })));
+      li.append(wrap);
+    }
+    ol.append(li);
+  });
+  const overall = (doneCount + (current != null ? curFrac : 0)) / STEPS.length;
+  const ob = $("overall-bar").firstChild; ob.style.width = (100 * overall).toFixed(1) + "%";
+  $("overall-text").textContent = current != null ? `Step ${current + 1} of ${STEPS.length}: ${STEPS[current][1]}` :
+    doneCount === STEPS.length ? "All steps done" : (setupOp && setupOp.status === "error" ? "Stopped. Fix the problem below, then try again." : "Not started");
+  $("overall-pct").textContent = overall > 0 ? `${Math.round(100 * overall)}%` : "";
+}
+$("save-account").addEventListener("click", async () => {
+  showMsg("account-msg", "");
+  try {
+    await api("/api/account", { user: $("user").value, gateway: "castle" });
+    delete $("account-panel").dataset.editing;
+    await api("/api/setup", {}).catch((e) => showMsg("setup-msg", e.message));
+    await poll();
+  } catch (e) { showMsg("account-msg", e.message); }
+});
+$("user").addEventListener("keydown", (e) => { if (e.key === "Enter") $("save-account").click(); });
+$("change-user").addEventListener("click", () => { $("account-panel").dataset.editing = "1"; $("user").focus(); render(); });
+$("run-setup").addEventListener("click", async () => { try { await api("/api/setup", {}); poll(); } catch (e) { showMsg("setup-msg", e.message); } });
+$("first-dl").addEventListener("click", async () => { homeForced = true; await startDownload("google/gemma-4-12B-it"); render(); });
+$("go-home").addEventListener("click", () => { homeForced = true; render(); });
+
+// ------------------------------------------------------------ sign-in prompt dialog
+let promptShown = null, duoWaiting = false, passwordsAnswered = 0;
+function renderPrompt(p, st) {
+  const scrim = $("scrim");
+  const signinRunning = st.ops.signin && st.ops.signin.status === "running" ||
+    st.ops.setup && st.ops.setup.status === "running" && st.setup.signin && st.setup.signin.status === "running";
+  if (!signinRunning) { duoWaiting = false; passwordsAnswered = 0; }
+  if (!p) {
+    promptShown = null;
+    if (duoWaiting && signinRunning) {   // keep telling the person what's happening until Duo answers
+      $("dlg-title").textContent = "Approve with Duo"; $("dlg-text").textContent = "";
+      $("dlg-opts").hidden = true; $("dlg-form").hidden = true; $("dlg-after").hidden = false;
+      scrim.classList.add("show");
+    } else scrim.classList.remove("show");
+    return;
+  }
+  if (promptShown === p.id) return;
+  promptShown = p.id; duoWaiting = false;
+  let text = p.text;
+  if (p.kind === "secret" && /password/i.test(p.title) && passwordsAnswered > 0) text = "That password didn't work. Check it and try again.\n\n" + text;
+  $("dlg-title").textContent = p.title; $("dlg-text").textContent = text; $("dlg-after").hidden = true;
+  const opts = $("dlg-opts"); opts.replaceChildren();
+  const input = $("dlg-input"); input.value = "";
+  input.type = p.kind === "secret" ? "password" : "text";
+  input.placeholder = p.kind === "duo" ? "Or type a passcode" : "";
+  $("dlg-form").hidden = p.kind === "choice";
+  if (p.kind === "duo" || p.kind === "choice") {
+    for (const o of p.options) {
+      opts.append(el("button", { class: "btn" + (opts.children.length ? " quiet" : ""), type: "button", text: o.label,
+        onclick: () => answer(p.id, o.value, p.kind === "duo") }));
+    }
+  }
+  opts.hidden = !opts.children.length;
+  $("dlg-ok").textContent = p.kind === "duo" ? "Use passcode" : "Continue";
+  scrim.classList.add("show");
+  setTimeout(() => (opts.children.length ? opts.firstChild : input).focus(), 30);
+}
+async function answer(id, value, duo) {
+  if (!duo && /password/i.test($("dlg-title").textContent)) passwordsAnswered++;
+  try { await api("/api/answer", { id, answer: value }); } catch (e) {}
+  if (duo) { duoWaiting = true; $("dlg-opts").hidden = true; $("dlg-form").hidden = true; $("dlg-text").textContent = ""; $("dlg-after").hidden = false; }
+  setTimeout(poll, 300);
+}
+$("dlg-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!promptShown) return;
+  const v = $("dlg-input").value;
+  if (!v) { $("dlg-input").focus(); return; }
+  answer(promptShown, v, /passcode/i.test($("dlg-input").placeholder));
+});
+$("dlg-cancel").addEventListener("click", async () => { if (promptShown) await api("/api/answer", { id: promptShown, cancel: true }).catch(() => {}); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && promptShown) $("dlg-cancel").click(); });
+async function signin() { try { await api("/api/signin", {}); poll(); } catch (e) { showMsg("signin-msg", e.message); } }
+$("signin-top").addEventListener("click", signin);
+$("signin-banner").addEventListener("click", signin);
+
+// ------------------------------------------------------------ home
+let sizeChosen = "standard";
+function renderHome(st) {
+  // sizes
+  const box = $("sizes");
+  if (!box.children.length) {
+    for (const s of st.sizes) {
+      const input = el("input", { type: "radio", name: "size", value: s.id, "aria-label": s.title });
+      if (s.id === sizeChosen) input.checked = true;
+      input.addEventListener("change", () => { sizeChosen = s.id; });
+      box.append(el("label", { class: "size" }, input, el("div", { class: "t", text: s.title }), el("div", { class: "b", text: s.blurb }),
+        el("div", { class: "avail", id: "avail-" + s.id })));
+    }
+  }
+  for (const s of st.sizes) {
+    const a = $("avail-" + s.id), g = st.gpus && st.gpus.per_size[s.id];
+    if (!g) { a.textContent = ""; continue; }
+    a.className = "avail " + (g.free ? "free" : "busy");
+    a.textContent = g.free ? `${g.free} of ${g.total} GPUs not in use right now` : `All ${g.total} GPUs in use. Expect a wait.`;
+  }
+  $("gpu-updated").textContent = st.gpus ? `GPU counts as of ${new Date(st.gpus.updated * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}.` : "";
+  const startOp = st.ops.start;
+  $("start").disabled = !st.signed_in || (startOp && startOp.status === "running");
+  $("start").textContent = startOp && startOp.status === "running" ? (startOp.message || "Starting") : "Start session";
+  if (!st.signed_in) showMsg("start-msg", "Sign in first. Use the Sign in button at the top.", "warn");
+  else showMsg("start-msg", startOp && startOp.status === "error" ? startOp.error : "");
+  renderSessions(st);
+  renderModels(st);
+  // settings
+  $("acct-line").textContent = `Georgia Tech username: ${st.user}.`;
+  const gw = st.gateway.startsWith("keep") ? "keep" : "castle";
+  if (document.activeElement !== $("gateway")) $("gateway").value = gw;
+  $("token-state").textContent = st.cluster ? (st.cluster.token ? "A token is saved on the cluster." : "No token saved.") : "";
+  const logText = st.log.join("\n");
+  if (logText !== lastLog) { lastLog = logText; $("log").textContent = logText || "Nothing yet."; }
+}
+
+const PHASES = [["queue", "Wait for a GPU"], ["start", "Start on the GPU machine"], ["connect", "Connect your browser"], ["ready", "Ready"]];
+function renderSessions(st) {
+  const host = $("sessions");
+  const list = st.sessions;
+  if (!list.length) { host.replaceChildren(el("p", { class: "empty", text: "No sessions running. Start one above." })); for (const k in sessionSig) delete sessionSig[k]; return; }
+  const keep = new Set(list.map((s) => s.sid));
+  for (const node of [...host.children]) if (!keep.has(node.dataset.sid)) node.remove();
+  [...host.querySelectorAll(".empty")].forEach((n) => n.remove());
+  list.forEach((s, i) => {
+    let card = host.querySelector(`[data-sid="${s.sid}"]`);
+    const sig = JSON.stringify([s.state, s.phase, s.message, s.detail, s.queue, s.fit, s.host, s.gpu, s.model, s.url]);
+    if (!card || sessionSig[s.sid] !== sig) {
+      const fresh = sessionCard(s, st);
+      if (card) card.replaceWith(fresh); else host.append(fresh);
+      card = fresh; sessionSig[s.sid] = sig;
+    }
+    if (host.children[i] !== card) host.insertBefore(card, host.children[i]);
+    tickCard(card, s);
+  });
+}
+function sizeTitle(st, id) { const z = st.sizes.find((x) => x.id === id); return z ? z.title : ""; }
+function sessionCard(s, st) {
+  const card = el("div", { class: "session" + (s.state === "ready" ? " ready" : ""), "data-sid": s.sid });
+  const title = s.state === "ready" ? `Running on ${s.host}` : s.state === "found" ? "Running (started earlier)" :
+    s.state === "ended" ? "Ended" : s.state === "error" ? "Stopped" : s.state === "ending" ? "Ending" : "Starting a session";
+  card.append(el("div", { class: "session-head" }, el("span", { class: "t", text: title }),
+    el("span", { class: "meta", text: [sizeTitle(st, s.size), `job ${s.jid}`].filter(Boolean).join(", ") })));
+  const active = ["waiting", "starting", "connecting"].includes(s.state);
+  if (active || s.state === "ready") {
+    const idx = PHASES.findIndex(([id]) => id === s.phase);
+    const ul = el("ol", { class: "phases", "aria-label": "Progress" });
+    PHASES.forEach(([id, label], i) => ul.append(el("li", { class: i < idx || s.state === "ready" ? "done" : i === idx ? "now" : "", text: label })));
+    card.append(ul);
+  }
+  if (active) {
+    card.append(el("p", { class: "step-title", text: phaseTitle(s) }));
+    for (const line of phaseWhy(s)) card.append(el("p", { class: "why", text: line }));
+    const est = s.phase === "start" ? "est" : null;
+    const wrap = el("div", { style: "margin-top:10px", "data-bar": est || "" }, bar(est ? 0 : null),
+      el("div", { class: "ptext" }, el("span", { class: "elapsed" }), el("span", { class: "pct" })));
+    card.append(wrap);
+    if (s.detail && s.phase === "queue") card.append(el("details", { style: "margin-top:8px" }, el("summary", { text: "What HTCondor says about your request" }), el("div", { class: "analysis", text: s.detail })));
+    card.append(el("div", { class: "row actions" }, el("button", { class: "btn small danger", type: "button", text: "Cancel", onclick: () => endSession(s.sid) })));
+  } else if (s.state === "ready") {
+    card.append(el("div", { class: "facts" },
+      el("span", {}, document.createTextNode("GPU: "), el("b", { text: s.gpu || "checking" })),
+      el("span", {}, document.createTextNode("Model: "), el("b", { text: s.model || "none loaded yet" })),
+      el("span", { class: "elapsed" })));
+    card.append(el("p", { class: "why", text: `It ends after ${s.idle ? dur(s.idle * 60) : "its idle time"} without activity. End it yourself when you're done, so others can use the GPU.` }));
+    card.append(el("div", { class: "row actions" },
+      el("button", { class: "btn", type: "button", text: "Open Probe Bench", onclick: () => window.open(s.url, "_blank", "noopener") }),
+      el("button", { class: "btn quiet danger", type: "button", text: "End session", onclick: () => endSession(s.sid) })));
+  } else if (s.state === "found") {
+    card.append(el("p", { class: "why", text: "This session was started earlier, from this Mac or the probebench command. Connect to open it, or end it to free the GPU." }));
+    card.append(el("div", { class: "row actions" },
+      el("button", { class: "btn", type: "button", text: "Connect", onclick: () => api("/api/connect", { sid: s.sid }).then(poll).catch((e) => alertIn(card, e.message)) }),
+      el("button", { class: "btn quiet danger", type: "button", text: "End session", onclick: () => endSession(s.sid) })));
+  } else if (s.state === "disconnected") {
+    card.append(el("p", { class: "why", text: s.message }));
+    card.append(el("div", { class: "row actions" }, el("button", { class: "btn", type: "button", text: "Sign in", onclick: signin })));
+  } else {
+    card.append(el("p", { class: "why", text: s.message }));
+    if (s.detail) card.append(el("div", { class: "analysis", text: s.detail }));
+  }
+  return card;
+}
+function alertIn(card, text) { card.append(el("p", { class: "msg error", style: "margin-top:10px", text })); }
+function phaseTitle(s) {
+  if (s.phase === "queue") return "Waiting for a free GPU";
+  if (s.phase === "start") return `Got a GPU${s.host ? " on " + s.host : ""}. Starting Probe Bench there`;
+  if (s.phase === "connect") return "Connecting your browser";
+  return s.message || "Sending the request to HTCondor";
+}
+function phaseWhy(s) {
+  if (s.phase === "queue") {
+    const out = [];
+    if (s.fit) {
+      out.push(s.fit.free
+        ? `${s.fit.free} of the ${s.fit.total} GPUs that fit this size look free. Jobs usually start within a minute or two, though some free GPUs are reserved by the groups that own them.`
+        : `All ${s.fit.total} GPUs that fit this size are in use, so your job waits until one frees up.`);
+    }
+    if (s.queue && s.queue.waiting) out.push(`${s.queue.waiting} other GPU ${s.queue.waiting === 1 ? "job is" : "jobs are"} also waiting. HTCondor shares GPUs by recent use, not by who asked first.`);
+    out.push("The wait can't be predicted. A smaller size has more GPUs to choose from.");
+    return out;
+  }
+  if (s.phase === "start") return ["Loading the container and PyTorch on that machine. This usually takes under a minute."];
+  if (s.phase === "connect") return ["Opening a private, encrypted tunnel from this Mac to the GPU machine. A few seconds."];
+  return ["Submitting the job."];
+}
+function tickCard(card, s) {
+  const started = (s.phase_started && s.phase_started[s.phase]) || s.created;
+  const e = card.querySelector(".elapsed");
+  const t = serverNow();
+  if (e) e.textContent = s.state === "ready" ? `Running for ${dur(t - (s.ready_at || s.created))}` :
+    (s.phase === "queue" ? `Waiting for ${dur(t - started)}` : `${dur(t - started)} so far`);
+  const wrap = card.querySelector("[data-bar=est]");
+  if (wrap) {
+    const f = Math.min(0.95, (t - started) / 60);
+    wrap.querySelector(".progress").firstChild.style.width = (100 * Math.max(0.03, f)).toFixed(1) + "%";
+    wrap.querySelector(".pct").textContent = "estimated";
+  }
+}
+async function endSession(sid) {
+  try { await api("/api/end", { sid }); poll(); } catch (e) { showMsg("start-msg", e.message); }
+}
+$("start").addEventListener("click", async () => {
+  showMsg("start-msg", "");
+  try { await api("/api/start", { size: sizeChosen, idle: Number($("idle").value) }); poll(); } catch (e) { showMsg("start-msg", e.message); }
+});
+
+function renderModels(st) {
+  const host = $("models");
+  const models = (st.cluster && st.cluster.models) || [];
+  const sig = JSON.stringify(models);
+  if (host.dataset.sig !== sig) {
+    host.dataset.sig = sig;
+    host.replaceChildren(models.length
+      ? el("ul", { class: "models" }, ...models.map((m) => el("li", {}, el("span", { text: m.id }), el("span", { class: "size-t", text: m.size }))))
+      : el("p", { class: "empty", style: "margin-top:10px", text: st.cluster ? "No models downloaded yet. Download one below." : "Checking the cluster" }));
+  }
+  const dl = $("downloads"); dl.replaceChildren();
+  for (const [name, d] of Object.entries(st.downloads)) {
+    if (d.status === "done" && models.some((m) => m.id === name)) continue;
+    dl.append(el("div", { class: "stack", style: "margin-top:10px" },
+      el("p", {}, el("b", { text: name })),
+      d.status === "running" ? bar(d.fraction) : null,
+      el("p", { class: d.status === "error" ? "msg error" : "ptext", text: d.text || "" })));
+  }
+  const sug = $("suggest");
+  if (!sug.children.length) {
+    for (const s of st.suggested) sug.append(el("li", {}, el("button", { class: "linkish", type: "button", text: s.id, onclick: () => { $("dl-input").value = s.id; $("dl-input").focus(); } }),
+      el("p", { class: "n", text: `${s.note}. ${s.size}.` })));
+  }
+}
+async function startDownload(model) {
+  showMsg("dl-msg", "");
+  try { await api("/api/download", { model }); poll(); } catch (e) { showMsg("dl-msg", e.message); }
+}
+$("dl-btn").addEventListener("click", () => { const m = $("dl-input").value.trim(); if (m) startDownload(m); else showMsg("dl-msg", "Type a model's Hugging Face name, like google/gemma-4-12B."); });
+$("gateway").addEventListener("change", async () => {
+  try { await api("/api/account", { user: S.user, gateway: $("gateway").value }); poll(); } catch (e) { showMsg("token-msg", e.message); }
+});
+$("signout").addEventListener("click", () => api("/api/signout", {}).then(poll));
+$("rerun-setup").addEventListener("click", async () => { homeForced = false; await api("/api/setup", {}).catch((e) => showMsg("token-msg", e.message)); poll(); });
+$("save-token").addEventListener("click", async () => {
+  showMsg("token-msg", "");
+  try { await api("/api/token", { token: $("token").value }); $("token").value = ""; showMsg("token-msg", "Saved on the cluster.", "ok"); poll(); }
+  catch (e) { showMsg("token-msg", e.message); }
+});
+
+poll();
+setInterval(poll, 1000);
+setInterval(() => { if (S && !document.hidden) api("/api/refresh", {}).catch(() => {}); }, 45000);
+api("/api/refresh", {}).catch(() => {});
+</script>
+</body>
+</html>

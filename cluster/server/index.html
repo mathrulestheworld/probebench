@@ -1,0 +1,1028 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Probe Bench</title>
+<link rel="icon" href="data:,">
+<style>
+:root {
+  color-scheme: light;
+  --navy: #003057;          /* Georgia Tech navy: primary actions, headings, focus */
+  --navy-hover: #0b416d;
+  --gold: #b3a369;          /* Tech gold: what is selected */
+  --gold-wash: #f4f0e2;
+  --ink: #1f2a36;
+  --ink-2: #5b6672;
+  --muted: #8b949e;
+  --page: #eef1f4;
+  --panel: #ffffff;
+  --rule: #d8dde3;
+  --rule-soft: #e9ecf0;
+  --series: #2a78d6;
+  --series-wash: rgba(42, 120, 214, 0.10);
+  --good: #0ca30c;
+  --warning: #fab219;
+  --critical: #d03b3b;
+  --sans: "Avenir Next", "Avenir", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font: 14px/1.5 var(--sans);
+  color: var(--ink);
+  background: var(--page);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; font-weight: 600; color: var(--navy); }
+h2 { font-size: 15px; }
+h3 { font-size: 14px; }
+p { margin: 0; }
+code, .mono { font-family: var(--mono); font-size: 12.5px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ---------- buttons and fields */
+.btn {
+  border: 1px solid var(--navy); background: var(--navy); color: #fff;
+  border-radius: 4px; padding: 6px 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.btn:hover { background: var(--navy-hover); }
+.btn[disabled] { opacity: .45; cursor: default; }
+.btn.quiet { background: var(--panel); color: var(--navy); }
+.btn.quiet:hover { background: #f2f5f8; }
+.btn.danger { background: var(--panel); color: var(--critical); border-color: #e4b9b9; }
+.btn.danger.armed { background: var(--critical); color: #fff; border-color: var(--critical); }
+.linkish { border: 0; background: none; color: var(--navy); padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+input[type=text], input[type=password], input[type=number], textarea {
+  width: 100%; border: 1px solid var(--rule); border-radius: 4px; background: #fff; padding: 7px 9px;
+}
+input[type=number] { width: 6.5em; }
+textarea { resize: vertical; line-height: 1.45; }
+input:focus, textarea:focus { border-color: var(--navy); outline: none; box-shadow: 0 0 0 1px var(--navy); }
+label.check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+label.field { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); }
+.hint { color: var(--ink-2); font-size: 13px; }
+.msg { font-size: 13px; padding: 8px 10px; border-radius: 4px; border-left: 3px solid var(--rule); background: #f6f7f9; }
+.msg.error { border-left-color: var(--critical); background: #fbefef; }
+.msg.warn { border-left-color: var(--warning); background: #fdf6e6; }
+.msg.ok { border-left-color: var(--good); background: #eef8ee; }
+.msg:empty { display: none; }
+details > summary { cursor: pointer; color: var(--navy); }
+details > summary::marker { color: var(--muted); }
+
+/* ---------- top bar */
+header.bar {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 10px 22px; background: var(--panel); border-bottom: 1px solid var(--rule);
+  position: sticky; top: 0; z-index: 5;
+}
+header.bar h1 { font-size: 18px; letter-spacing: .2px; margin-right: 6px; }
+.conn { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.dot.good { background: var(--good); }
+.dot.bad { background: var(--critical); }
+.gpu { display: flex; align-items: center; gap: 10px; color: var(--ink-2); }
+.meter { width: 110px; height: 8px; border-radius: 4px; background: #d5e5f9; overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--series); border-radius: 4px 0 0 4px; }
+.idle { color: var(--ink-2); display: flex; align-items: center; gap: 10px; }
+.idle.soon { color: #8a5a00; font-weight: 600; }
+header.bar .spacer { flex: 1; }
+.banner { padding: 10px 22px; background: #fbefef; border-bottom: 1px solid #edc9c9; display: none; }
+.banner.show { display: block; }
+
+/* ---------- layout */
+.layout { display: grid; grid-template-columns: 330px minmax(0, 1fr); min-height: calc(100vh - 54px); }
+aside.model { background: var(--panel); border-right: 1px solid var(--rule); padding: 18px 20px 40px; }
+aside.model section + section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--rule-soft); }
+aside.model h2 { margin-bottom: 10px; }
+main { padding: 0 26px 48px; min-width: 0; }
+
+.loaded-name { font-size: 16px; font-weight: 600; color: var(--ink); word-break: break-all; }
+.facts { margin: 8px 0 10px; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; }
+.facts dt { color: var(--ink-2); }
+.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+.model-list { list-style: none; margin: 0 0 10px; padding: 0; border: 1px solid var(--rule); border-radius: 4px; }
+.model-list li + li { border-top: 1px solid var(--rule-soft); }
+.model-list label { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; padding: 8px 10px; cursor: pointer; align-items: start; }
+.model-list label:hover { background: #f6f8fa; }
+.model-list input { margin: 3px 0 0; accent-color: var(--navy); }
+.model-list .id { word-break: break-all; }
+.model-list .size { color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 13px; }
+.model-list .note { grid-column: 2 / 4; font-size: 12.5px; color: #8a5a00; }
+.model-list .here { grid-column: 2 / 4; font-size: 12.5px; color: var(--good); font-weight: 600; }
+.empty { color: var(--ink-2); font-size: 13px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.stack > * + * { margin-top: 10px; }
+.progress { height: 6px; border-radius: 3px; background: #e3e8ee; overflow: hidden; }
+.progress > span { display: block; height: 100%; width: 0; background: var(--navy); transition: width .4s; }
+.progress.indeterminate > span { width: 30%; animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { margin-left: -30%; } to { margin-left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .progress.indeterminate > span { animation: none; width: 100%; opacity: .5; } }
+.suggest { list-style: none; padding: 0; margin: 8px 0 0; }
+.suggest li { padding: 6px 0; border-top: 1px solid var(--rule-soft); display: grid; grid-template-columns: 1fr auto; gap: 0 8px; }
+.suggest button { text-align: left; }
+.suggest .note { grid-column: 1 / 3; color: var(--ink-2); font-size: 12.5px; }
+.suggest .size { color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+/* ---------- tabs */
+.tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--rule); margin-bottom: 20px; position: sticky; top: 54px; background: var(--page); z-index: 4; padding-top: 14px; }
+.tabs button {
+  border: 0; background: none; padding: 8px 0 10px; cursor: pointer; color: var(--ink-2); font-weight: 600; font-size: 15px;
+  border-bottom: 3px solid transparent; margin-bottom: -1px;
+}
+.tabs button[aria-selected=true] { color: var(--navy); border-bottom-color: var(--gold); }
+.tabs button:hover { color: var(--navy); }
+[role=tabpanel][hidden] { display: none; }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; }
+.panel + .panel { margin-top: 16px; }
+.weights > .panel { margin-top: 0; }
+.lede { color: var(--ink-2); max-width: 70ch; margin-bottom: 14px; }
+.options { display: flex; gap: 18px; flex-wrap: wrap; align-items: center; margin: 10px 0 12px; }
+
+/* ---------- generate */
+.output {
+  white-space: pre-wrap; word-wrap: break-word; min-height: 120px; padding: 14px 16px; border-radius: 4px;
+  background: #f7f9fb; border: 1px solid var(--rule-soft); font-size: 15px; line-height: 1.6; max-width: 90ch;
+}
+.output.placeholder { color: var(--muted); }
+.output .prompt-echo { color: var(--ink-2); }
+.caret { display: inline-block; width: 7px; height: 1.1em; vertical-align: text-bottom; background: var(--navy); margin-left: 1px; animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+.stats { color: var(--ink-2); font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.history { list-style: none; padding: 0; margin: 8px 0 0; }
+.history li { border-top: 1px solid var(--rule-soft); padding: 8px 0; }
+.history button { text-align: left; width: 100%; border: 0; background: none; cursor: pointer; padding: 0; }
+.history .p { color: var(--ink); }
+.history .o { color: var(--ink-2); font-size: 13px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- activations */
+.tokens { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 16px; }
+.tok {
+  font-family: var(--mono); font-size: 12.5px; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--rule);
+  background: #fff; cursor: pointer; white-space: pre; border-bottom-width: 3px; border-bottom-color: transparent;
+}
+.tok .ws { color: var(--muted); }
+.tok[aria-pressed=true] { background: var(--gold-wash); border-color: var(--gold); border-bottom-color: var(--gold); }
+.viz { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: 26px; align-items: start; }
+.chart-title { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+.chart-sub { color: var(--ink-2); font-size: 13px; margin-bottom: 10px; }
+.scale-row { display: flex; gap: 6px 18px; flex-wrap: wrap; align-items: center; margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+.heat-legend-row { margin-top: 10px; }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.legend .ramp { width: 140px; height: 8px; border-radius: 2px; }
+svg text { font-family: var(--sans); }
+.heat rect.cell:hover { stroke: var(--ink); stroke-width: 1; }
+.lens { width: 100%; border-collapse: collapse; font-size: 13px; }
+.lens th { text-align: left; color: var(--ink-2); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: #fff; }
+.lens td { padding: 3px 6px; border-bottom: 1px solid var(--rule-soft); vertical-align: middle; }
+.lens td.layer { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.lens tr.focus td { background: var(--gold-wash); }
+.lens tr.out td { border-bottom: 2px solid var(--rule); font-weight: 600; }
+.lens .top { display: grid; grid-template-columns: minmax(0, 1fr) 64px 3.2em; gap: 8px; align-items: center; }
+.lens .t { font-family: var(--mono); font-size: 12.5px; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.lens .pbar { height: 6px; background: #d5e5f9; border-radius: 3px; overflow: hidden; }
+.lens .pbar > span { display: block; height: 100%; background: var(--series); }
+.lens .pv { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.lens .rest { font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: pre; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.lens-wrap { max-height: 600px; overflow: auto; border: 1px solid var(--rule-soft); border-radius: 4px; }
+.table-scroll { overflow: auto; max-height: 360px; margin-top: 8px; }
+table.plain { border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+table.plain th, table.plain td { padding: 2px 8px; border-bottom: 1px solid var(--rule-soft); text-align: right; white-space: nowrap; }
+table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: #fff; }
+.saved { margin-top: 12px; }
+.saved pre { background: #f7f9fb; border: 1px solid var(--rule-soft); padding: 10px 12px; border-radius: 4px; overflow: auto; font-size: 12.5px; }
+
+/* ---------- weights */
+.weights { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.plist { list-style: none; margin: 8px 0 0; padding: 0; max-height: 70vh; overflow: auto; border: 1px solid var(--rule); border-radius: 4px; }
+.plist button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--rule-soft); background: #fff; padding: 6px 10px; cursor: pointer; }
+.plist button:hover { background: #f6f8fa; }
+.plist button[aria-pressed=true] { background: var(--gold-wash); box-shadow: inset 3px 0 0 var(--gold); }
+.plist .n { font-family: var(--mono); font-size: 12px; word-break: break-all; display: block; }
+.plist .s { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.statgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px 18px; margin: 12px 0 18px; }
+.statgrid div { border-top: 1px solid var(--rule-soft); padding-top: 6px; }
+.statgrid .k { color: var(--ink-2); font-size: 12.5px; }
+.statgrid .v { font-size: 16px; font-weight: 600; }
+.charts2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px; }
+
+.tip {
+  position: fixed; pointer-events: none; z-index: 20; background: #fff; border: 1px solid var(--rule);
+  border-radius: 4px; padding: 6px 9px; font-size: 12.5px; box-shadow: 0 2px 10px rgba(16, 32, 48, .12); display: none; max-width: 320px;
+}
+.tip strong { display: block; font-size: 14px; color: var(--ink); }
+.tip span { color: var(--ink-2); }
+
+@media (max-width: 960px) {
+  .layout { grid-template-columns: 1fr; }
+  aside.model { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .viz, .weights { grid-template-columns: 1fr; }
+  .tabs { top: 0; position: static; }
+  header.bar { position: static; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <h1>Probe Bench</h1>
+  <span class="conn" id="conn"><span class="dot" id="conn-dot"></span><span id="conn-text">Connecting</span></span>
+  <span class="gpu" id="gpu"></span>
+  <span class="spacer"></span>
+  <span class="idle" id="idle"></span>
+  <button class="btn danger" id="end-btn" type="button">End session</button>
+</header>
+<div class="banner" id="lost" role="alert">
+  Lost contact with this session. If it ended or timed out, start a new one from the Probe Bench app on your Mac.
+</div>
+
+<div class="layout">
+  <aside class="model" aria-label="Model">
+    <section id="loaded"></section>
+
+    <section>
+      <h2>Downloaded models</h2>
+      <div id="model-list"></div>
+      <div class="stack">
+        <div class="row"><button class="btn" id="load-btn" type="button" disabled>Load model</button></div>
+        <div id="load-progress" hidden><div class="progress indeterminate"><span></span></div><p class="hint" id="load-text"></p></div>
+        <p class="msg" id="load-msg" role="status"></p>
+        <details>
+          <summary>Load from a folder on the cluster</summary>
+          <div class="stack" style="margin-top:8px">
+            <input type="text" id="path-input" placeholder="/home/you/checkpoints/my-finetune" spellcheck="false" aria-label="Folder path on the cluster">
+            <button class="btn quiet" id="path-btn" type="button">Load folder</button>
+            <p class="hint">Any folder with a Hugging Face model in it, such as a fine-tuned checkpoint.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section>
+      <h2>Download a model</h2>
+      <div class="stack">
+        <input type="text" id="dl-input" placeholder="org/model, like google/gemma-4-12B" spellcheck="false" aria-label="Hugging Face model name">
+        <details id="dl-token-box">
+          <summary>Gated model? Add a Hugging Face token</summary>
+          <div class="stack" style="margin-top:8px">
+            <input type="password" id="dl-token" placeholder="hf_…" autocomplete="off" aria-label="Hugging Face token">
+            <p class="hint" id="token-hint">Used for this download only. To save one for good, use Settings in the Probe Bench app on your Mac.</p>
+          </div>
+        </details>
+        <div class="row"><button class="btn quiet" id="dl-btn" type="button">Download</button></div>
+        <div id="dl-progress" hidden><div class="progress"><span id="dl-bar"></span></div><p class="hint" id="dl-text"></p></div>
+        <p class="msg" id="dl-msg" role="status"></p>
+        <p class="hint">Downloading here keeps this GPU reserved while it runs. For large models, download from the Probe Bench app on your Mac instead; it uses a CPU-only job.</p>
+        <div>
+          <h3>Suggestions</h3>
+          <ul class="suggest" id="suggest"></ul>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <main>
+    <div class="tabs" role="tablist" aria-label="Tools">
+      <button role="tab" id="tab-gen" aria-controls="p-gen" aria-selected="true" type="button">Generate</button>
+      <button role="tab" id="tab-act" aria-controls="p-act" aria-selected="false" type="button" tabindex="-1">Activations</button>
+      <button role="tab" id="tab-w" aria-controls="p-w" aria-selected="false" type="button" tabindex="-1">Weights</button>
+    </div>
+
+    <!-- Generate -->
+    <section role="tabpanel" id="p-gen" aria-labelledby="tab-gen">
+      <div class="panel">
+        <label for="gen-prompt" class="sr-only">Prompt</label>
+        <textarea id="gen-prompt" rows="6" placeholder="Write a prompt. Press ⌘ Enter to run."></textarea>
+        <div class="options">
+          <label class="check"><input type="checkbox" id="gen-chat"> Chat format</label>
+          <label class="check"><input type="checkbox" id="gen-think"> Allow thinking</label>
+          <label class="field">Max new tokens <input type="number" id="gen-max" min="1" max="4096" value="200"></label>
+          <label class="field">Temperature <input type="number" id="gen-temp" min="0" max="2" step="0.1" value="0"></label>
+        </div>
+        <details>
+          <summary>System prompt</summary>
+          <textarea id="gen-system" rows="3" style="margin-top:8px" placeholder="Optional. Only used with Chat format."></textarea>
+        </details>
+        <p class="hint" style="margin-top:8px">Chat format wraps your prompt in the model's chat template, which instruction-tuned models expect. Temperature 0 always picks the most likely next token.</p>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="gen-run" type="button">Run</button>
+          <button class="btn quiet" id="gen-stop" type="button" hidden>Stop</button>
+        </div>
+        <div id="gen-progress" hidden style="margin-top:12px; max-width: 520px"><div class="progress indeterminate"><span></span></div><p class="hint" id="gen-ptext"></p></div>
+        <p class="msg" id="gen-msg" role="status" style="margin-top:10px"></p>
+      </div>
+      <div class="panel">
+        <h2 style="margin-bottom:8px">Output</h2>
+        <div class="output placeholder" id="gen-out" aria-live="polite">The model's reply appears here as it's written.</div>
+        <p class="stats" id="gen-stats"></p>
+      </div>
+      <div class="panel" id="history-panel" hidden>
+        <h2>Earlier runs</h2>
+        <ul class="history" id="history"></ul>
+      </div>
+    </section>
+
+    <!-- Activations -->
+    <section role="tabpanel" id="p-act" aria-labelledby="tab-act" hidden>
+      <div class="panel">
+        <p class="lede">Runs a prompt through the model once and shows, for every token, how large its internal state is after each layer, and what the model would predict next if it stopped at that layer.</p>
+        <label for="act-prompt" class="sr-only">Prompt to analyze</label>
+        <textarea id="act-prompt" rows="3" placeholder="The capital of France is"></textarea>
+        <div class="options">
+          <label class="check"><input type="checkbox" id="act-chat"> Chat format</label>
+          <span class="hint">Up to 256 tokens.</span>
+        </div>
+        <div class="row">
+          <button class="btn" id="act-run" type="button">Analyze</button>
+          <button class="btn quiet" id="act-save" type="button">Save activations</button>
+        </div>
+        <div id="act-progress" hidden style="margin-top:12px; max-width: 520px"><div class="progress indeterminate"><span></span></div><p class="hint" id="act-ptext"></p></div>
+        <p class="msg" id="act-msg" role="status" style="margin-top:10px"></p>
+        <div class="saved" id="act-saved" hidden></div>
+      </div>
+      <div class="panel" id="act-result" hidden>
+        <h2 style="margin-bottom:6px">Tokens</h2>
+        <p class="hint">Pick a token to see the model's layer-by-layer prediction for what comes after it.</p>
+        <div class="tokens" id="act-tokens" role="group" aria-label="Tokens"></div>
+        <div class="viz">
+          <div>
+            <p class="chart-title">Size of each token's internal state, layer by layer</p>
+            <p class="chart-sub" id="heat-sub"></p>
+            <div id="heat"></div>
+            <div class="heat-legend-row"><span class="legend" id="heat-legend"></span></div>
+            <div class="scale-row">
+              <label class="check"><input type="radio" name="scale" value="row" checked> Compare tokens within each layer</label>
+              <label class="check"><input type="radio" name="scale" value="global"> Compare across all layers (log scale)</label>
+              <label class="check"><input type="checkbox" id="skip-first" checked> Leave the first token out of the color scale</label>
+            </div>
+            <details style="margin-top:12px">
+              <summary>Show these numbers as a table</summary>
+              <div class="table-scroll" id="norm-table"></div>
+            </details>
+          </div>
+          <div>
+            <p class="chart-title" id="lens-title">Prediction at each layer</p>
+            <p class="chart-sub">Each row reads the model's state at that layer through its final norm and output head (the "logit lens"). The top row is the model's real output.</p>
+            <p class="msg warn" id="lens-warn" hidden></p>
+            <div class="lens-wrap"><table class="lens" id="lens"></table></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Weights -->
+    <section role="tabpanel" id="p-w" aria-labelledby="tab-w" hidden>
+      <div class="weights">
+        <div class="panel">
+          <label for="w-filter"><h2 style="margin-bottom:8px">Parameters</h2></label>
+          <input type="text" id="w-filter" placeholder="Filter, like layers.10.mlp" spellcheck="false">
+          <p class="hint" id="w-count" style="margin-top:6px"></p>
+          <ul class="plist" id="w-list"></ul>
+        </div>
+        <div class="panel" id="w-detail">
+          <p class="empty" id="w-empty">Load a model, then pick a parameter to see its statistics and spectrum.</p>
+          <div id="w-body" hidden>
+            <h2 class="mono" id="w-name" style="font-size:14px; word-break: break-all"></h2>
+            <p class="msg" id="w-msg" role="status" style="margin-top:8px"></p>
+            <div class="statgrid" id="w-stats"></div>
+            <div class="charts2">
+              <div>
+                <p class="chart-title">Distribution of values</p>
+                <p class="chart-sub" id="hist-sub"></p>
+                <div id="hist"></div>
+              </div>
+              <div id="sv-box">
+                <p class="chart-title">Singular values</p>
+                <p class="chart-sub" id="sv-sub"></p>
+                <div id="sv"></div>
+                <div class="row" style="margin-top:8px"><button class="linkish" id="sv-copy" type="button">Copy singular values</button><span class="hint" id="sv-copied"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+"use strict";
+// ------------------------------------------------------------------ helpers
+const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const nf = (d) => new Intl.NumberFormat(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
+const fmtInt = new Intl.NumberFormat();
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v); else if (v !== false && v != null) n.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) n.append(k);
+  return n;
+}
+function svg(tag, attrs = {}) {
+  const n = document.createElementNS(SVGNS, tag);
+  for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+  return n;
+}
+function fmt(x, digits = 3) {
+  if (x == null || Number.isNaN(x)) return "–";
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e5)) return x.toExponential(2);
+  return Number(x.toPrecision(digits)).toString();
+}
+function prob(p) { return p >= 0.01 ? nf(2).format(p) : p > 0 ? "<0.01" : "0"; }
+// Progress bars: exact width when the fraction is known, a moving stripe when it isn't.
+function setBar(boxId, fraction) {
+  const bar = $(boxId).querySelector(".progress"), fill = bar.firstElementChild;
+  if (fraction == null) { bar.classList.add("indeterminate"); fill.style.width = ""; }
+  else { bar.classList.remove("indeterminate"); fill.style.width = (100 * Math.max(0.02, fraction)).toFixed(1) + "%"; }
+}
+function gb(x) { return x == null ? "–" : nf(1).format(x) + " GB"; }
+function showMsg(id, text, kind = "") { const m = $(id); m.textContent = text || ""; m.className = "msg" + (kind ? " " + kind : ""); }
+// Show whitespace in tokens so leading spaces and newlines are visible.
+function tokenNode(s) {
+  const frag = document.createDocumentFragment();
+  for (const part of String(s).split(/( |\n|\t)/)) {
+    if (part === " ") frag.append(el("span", { class: "ws", text: "␣" }));
+    else if (part === "\n") frag.append(el("span", { class: "ws", text: "↵" }));
+    else if (part === "\t") frag.append(el("span", { class: "ws", text: "⇥" }));
+    else if (part) frag.append(document.createTextNode(part));
+  }
+  return frag;
+}
+const tokenText = (s) => String(s).replace(/ /g, "␣").replace(/\n/g, "↵").replace(/\t/g, "⇥");
+
+// ------------------------------------------------------------------ API
+let lost = false;
+async function api(path, body) {
+  const opt = { credentials: "same-origin", headers: {} };
+  if (body !== undefined) { opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  let r;
+  try { r = await fetch(path, opt); } catch (e) { setLost(true); throw new Error("Lost contact with the session."); }
+  setLost(false);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`);
+  return j;
+}
+async function runTask(path, body, onTick) {
+  const { task } = await api(path, body);
+  for (;;) {
+    const t = await api("/api/task/" + task);
+    if (onTick) onTick(t);
+    if (t.status === "done") return t.result;
+    if (t.status === "cancelled") return null;
+    if (t.status === "error") throw new Error(t.error);
+    await sleep(t.kind === "generate" ? 150 : 400);
+  }
+}
+
+// ------------------------------------------------------------------ tooltip
+const tip = $("tip");
+function showTip(evt, value, label) {
+  tip.replaceChildren(el("strong", { text: value }), el("span", { text: label }));
+  tip.style.display = "block";
+  const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = evt.clientX + pad, y = evt.clientY + pad;
+  if (x + w > innerWidth - 8) x = evt.clientX - w - pad;
+  if (y + h > innerHeight - 8) y = evt.clientY - h - pad;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+
+// ------------------------------------------------------------------ state
+const S = { status: null, models: null, chosen: null, analysis: null, pos: null, layerFocus: null,
+            weights: null, wSelected: null, history: [], genTask: null };
+
+// ------------------------------------------------------------------ session bar
+function setLost(v) {
+  if (v === lost) return;
+  lost = v;
+  $("lost").classList.toggle("show", v);
+  $("conn-dot").className = "dot " + (v ? "bad" : "good");
+  $("conn-text").textContent = v ? "Disconnected" : "Connected";
+}
+async function refreshStatus() {
+  try { S.status = await api("/api/status"); } catch { return; }
+  const st = S.status, g = st.gpu;
+  $("conn-dot").className = "dot good";
+  $("conn-text").textContent = st.busy ? "Working" : "Connected";
+  const node = (st.session.node || "").split(".")[0];
+  const gpu = $("gpu"); gpu.replaceChildren();
+  gpu.append(el("span", { text: g.name }));
+  if (g.total_gb) {
+    const pct = Math.min(100, 100 * g.used_gb / g.total_gb);
+    const meter = el("span", { class: "meter", role: "meter", "aria-valuemin": "0", "aria-valuemax": String(g.total_gb.toFixed(1)),
+                               "aria-valuenow": String(g.used_gb.toFixed(1)), "aria-label": "GPU memory in use" }, el("span"));
+    meter.firstChild.style.width = pct + "%";
+    gpu.append(meter, el("span", { text: `${nf(1).format(g.used_gb)} of ${gb(g.total_gb)}` }));
+  }
+  if (node) gpu.append(el("span", { text: "on " + node }));
+  const left = Math.round(st.session.idle_left_s / 60), idle = $("idle");
+  idle.replaceChildren();
+  if (st.session.idle_left_s < 300) {
+    idle.className = "idle soon";
+    idle.append(el("span", { text: `Ends in ${Math.max(0, left)} min unless you use it` }),
+                el("button", { class: "btn quiet", type: "button", text: "Keep session", onclick: () => api("/api/keepalive", {}).then(refreshStatus) }));
+  } else {
+    idle.className = "idle";
+    idle.append(el("span", { text: `Ends after ${fmt(st.session.idle_minutes)} idle minutes` }));
+  }
+  renderLoaded();
+}
+const endBtn = $("end-btn");
+let armTimer = null;
+endBtn.addEventListener("click", async () => {
+  if (!endBtn.classList.contains("armed")) {
+    endBtn.classList.add("armed"); endBtn.textContent = "Click again to end";
+    armTimer = setTimeout(() => { endBtn.classList.remove("armed"); endBtn.textContent = "End session"; }, 4000);
+    return;
+  }
+  clearTimeout(armTimer);
+  endBtn.disabled = true; endBtn.textContent = "Ending";
+  try { await api("/api/shutdown", {}); } catch {}
+  document.body.replaceChildren(el("div", { class: "panel", style: "max-width:36rem;margin:4rem auto" },
+    el("h1", { text: "Session ended", style: "font-size:20px;margin-bottom:8px" }),
+    el("p", { text: "The GPU has been released. To start again, use the Probe Bench app on your Mac. You can close this tab." })));
+});
+
+// ------------------------------------------------------------------ model panel
+function renderLoaded() {
+  const box = $("loaded"), m = S.status && S.status.model;
+  box.replaceChildren(el("h2", { text: "Loaded model" }));
+  if (!m) {
+    box.append(el("p", { class: "empty", text: "No model loaded. Pick one you've downloaded below, or download one first." }));
+    return;
+  }
+  const dl = el("dl", { class: "facts" });
+  const add = (k, v) => dl.append(el("dt", { text: k }), el("dd", { text: v }));
+  add("Parameters", nf(2).format(m.params_b) + " billion");
+  add("Layers", fmtInt.format(m.layers));
+  add("Width", m.width ? fmtInt.format(m.width) : "–");
+  add("Vocabulary", m.vocab ? fmtInt.format(m.vocab) : "–");
+  add("Chat template", m.chat_template ? "Yes" : "No");
+  if (m.gpu_gb != null) add("GPU memory", gb(m.gpu_gb));
+  add("Loaded in", nf(0).format(m.load_seconds) + " s");
+  box.append(el("p", { class: "loaded-name", text: m.id }), dl,
+             el("button", { class: "linkish", type: "button", text: "Unload", onclick: unload }));
+}
+async function refreshModels() {
+  try { S.models = await api("/api/models"); } catch (e) { showMsg("load-msg", e.message, "error"); return; }
+  const box = $("model-list"); box.replaceChildren();
+  const list = S.models.models.filter((m) => m.complete);
+  if (!list.length) {
+    box.append(el("p", { class: "empty", text: `Nothing downloaded yet in ${S.models.hf_home}. Download a model below.` }));
+  } else {
+    const ul = el("ul", { class: "model-list" });
+    for (const m of list) {
+      const input = el("input", { type: "radio", name: "model", value: m.id });
+      if (S.chosen === m.id) input.checked = true;
+      input.addEventListener("change", () => { S.chosen = m.id; $("load-btn").disabled = false; });
+      const lab = el("label", {}, input, el("span", { class: "id", text: m.id }), el("span", { class: "size", text: gb(m.size_gb) }));
+      if (m.loaded) lab.append(el("span", { class: "here", text: "Loaded" }));
+      else if (m.fits_gpu === false) lab.append(el("span", { class: "note", text: "⚠ Probably too big for this GPU" }));
+      else if (!m.fits_ram) lab.append(el("span", { class: "note", text: "⚠ Bigger than this session's RAM. Start one with --mem 64" }));
+      ul.append(el("li", {}, lab));
+    }
+    box.append(ul);
+  }
+  $("load-btn").disabled = !S.chosen;
+  const sug = $("suggest"); sug.replaceChildren();
+  const have = new Set(S.models.models.map((m) => m.id));
+  for (const s of S.models.suggested) {
+    if (have.has(s.id)) continue;
+    sug.append(el("li", {}, el("button", { class: "linkish", type: "button", text: s.id, onclick: () => { $("dl-input").value = s.id; $("dl-input").focus(); } }),
+                  el("span", { class: "size", text: gb(s.size_gb) }), el("span", { class: "note", text: s.note })));
+  }
+  if (!sug.children.length) sug.append(el("li", { class: "empty", text: "You have all the suggested models." }));
+  $("token-hint").textContent = S.status && S.status.hf_token_saved
+    ? "A token is already saved on the cluster, so you can leave this empty."
+    : "Used for this download only. To save one for good, use Settings in the Probe Bench app on your Mac.";
+}
+async function load(ref) {
+  if (!ref) return;
+  showMsg("load-msg", "");
+  $("load-progress").hidden = false; $("load-btn").disabled = true; $("path-btn").disabled = true;
+  try {
+    const info = await runTask("/api/load", { model: ref }, (t) => {
+      $("load-text").textContent = t.progress || "Loading";
+      setBar("load-progress", t.fraction);
+    });
+    showMsg("load-msg", `Loaded ${info.id} in ${nf(0).format(info.load_seconds)} s.`, "ok");
+    onModelChanged(info);
+  } catch (e) {
+    showMsg("load-msg", e.message, "error");
+  } finally {
+    $("load-progress").hidden = true; $("load-btn").disabled = !S.chosen; $("path-btn").disabled = false;
+    await refreshStatus(); refreshModels();
+  }
+}
+async function unload() {
+  try { await runTask("/api/unload", {}); showMsg("load-msg", "Model unloaded.", "ok"); } catch (e) { showMsg("load-msg", e.message, "error"); }
+  onModelChanged(null); await refreshStatus(); refreshModels();
+}
+function onModelChanged(info) {
+  S.weights = null; S.wSelected = null; S.analysis = null;
+  $("act-result").hidden = true; $("w-body").hidden = true; $("w-empty").hidden = false;
+  if (info) {
+    const instruct = info.chat_template && info.instruct_guess;
+    $("gen-chat").checked = instruct; $("act-chat").checked = false;
+    $("gen-chat").disabled = $("act-chat").disabled = !info.chat_template;
+  }
+  if (currentTab() === "p-w") loadWeights();
+}
+$("load-btn").addEventListener("click", () => load(S.chosen));
+$("path-btn").addEventListener("click", () => load($("path-input").value.trim()));
+$("dl-btn").addEventListener("click", async () => {
+  const model = $("dl-input").value.trim();
+  if (!model) { showMsg("dl-msg", "Type a model name, like google/gemma-4-12B.", "error"); return; }
+  showMsg("dl-msg", ""); $("dl-btn").disabled = true; $("dl-progress").hidden = false; $("dl-bar").style.width = "0";
+  try {
+    await runTask("/api/download", { model, token: $("dl-token").value }, (t) => {
+      $("dl-text").textContent = t.progress || "";
+      if (t.fraction != null) $("dl-bar").style.width = (100 * t.fraction).toFixed(1) + "%";
+    });
+    showMsg("dl-msg", `Downloaded ${model}. Pick it above and load it.`, "ok");
+    S.chosen = model; $("dl-token").value = "";
+  } catch (e) { showMsg("dl-msg", e.message, "error"); }
+  finally { $("dl-btn").disabled = false; $("dl-progress").hidden = true; refreshModels(); }
+});
+
+// ------------------------------------------------------------------ tabs
+const tabs = [...document.querySelectorAll("[role=tab]")];
+function currentTab() { return tabs.find((t) => t.getAttribute("aria-selected") === "true").getAttribute("aria-controls"); }
+function selectTab(tab) {
+  for (const t of tabs) {
+    const on = t === tab;
+    t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1;
+    $(t.getAttribute("aria-controls")).hidden = !on;
+  }
+  if (tab.id === "tab-w") loadWeights();
+  if (tab.id === "tab-act" && S.analysis) drawHeat();
+}
+tabs.forEach((t, i) => {
+  t.addEventListener("click", () => selectTab(t));
+  t.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); selectTab(n);
+  });
+});
+
+// ------------------------------------------------------------------ generate
+function genParams() {
+  return { prompt: $("gen-prompt").value, chat: $("gen-chat").checked, thinking: $("gen-think").checked,
+           system: $("gen-system").value, max_new_tokens: Number($("gen-max").value) || 200,
+           temperature: Number($("gen-temp").value) || 0 };
+}
+async function generate() {
+  const p = genParams();
+  if (!p.prompt.trim()) { showMsg("gen-msg", "Write a prompt first.", "error"); return; }
+  showMsg("gen-msg", "");
+  const out = $("gen-out"); out.className = "output"; out.replaceChildren();
+  const echo = p.chat ? null : el("span", { class: "prompt-echo", text: p.prompt });
+  const body = el("span"), caret = el("span", { class: "caret" });
+  if (echo) out.append(echo);
+  out.append(body, caret);
+  $("gen-run").hidden = true; $("gen-stop").hidden = false; $("gen-stats").textContent = "";
+  try {
+    const { task } = await api("/api/generate", p);
+    S.genTask = task;
+    let res = null;
+    for (;;) {
+      const t = await api("/api/task/" + task);
+      body.textContent = t.partial;
+      if (t.status === "running") {
+        $("gen-progress").hidden = false; setBar("gen-progress", t.fraction);
+        $("gen-ptext").textContent = t.progress || "Starting";
+        await sleep(150); continue;
+      }
+      if (t.status === "error") throw new Error(t.error);
+      res = t.result; break;
+    }
+    if (res) {
+      body.textContent = res.text;
+      $("gen-stats").textContent = `${fmtInt.format(res.new_tokens)} new tokens in ${nf(1).format(res.seconds)} s` +
+        (res.tokens_per_s ? `, ${nf(1).format(res.tokens_per_s)} tokens per second` : "") + (res.stopped ? ". Stopped early." : ".");
+      S.history.unshift({ p, text: res.text, model: res.model });
+      S.history = S.history.slice(0, 20); renderHistory();
+    }
+  } catch (e) { showMsg("gen-msg", e.message, "error"); }
+  finally { caret.remove(); $("gen-run").hidden = false; $("gen-stop").hidden = true; $("gen-progress").hidden = true; S.genTask = null; }
+}
+$("gen-run").addEventListener("click", generate);
+$("gen-stop").addEventListener("click", () => { if (S.genTask) api("/api/cancel", { task: S.genTask }); });
+$("gen-prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); if (!$("gen-run").hidden) generate(); } });
+function renderHistory() {
+  const ul = $("history"); ul.replaceChildren();
+  $("history-panel").hidden = !S.history.length;
+  for (const h of S.history) {
+    ul.append(el("li", {}, el("button", { type: "button", onclick: () => {
+      $("gen-prompt").value = h.p.prompt; $("gen-chat").checked = h.p.chat; $("gen-system").value = h.p.system || "";
+      $("gen-max").value = h.p.max_new_tokens; $("gen-temp").value = h.p.temperature;
+      const out = $("gen-out"); out.className = "output"; out.textContent = h.text; window.scrollTo({ top: 0 });
+    } }, el("span", { class: "p", text: h.p.prompt.slice(0, 140) }), el("span", { class: "o", text: `${h.model}: ${h.text.replace(/\s+/g, " ").slice(0, 200)}` }))));
+  }
+}
+
+// ------------------------------------------------------------------ activations
+const RAMP = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"];
+const rampRGB = RAMP.map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)));
+function rampColor(t) {
+  t = Math.max(0, Math.min(1, t)) * (rampRGB.length - 1);
+  const i = Math.min(rampRGB.length - 2, Math.floor(t)), f = t - i, a = rampRGB[i], b = rampRGB[i + 1];
+  return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * f)).join(",")})`;
+}
+function actParams() { return { prompt: $("act-prompt").value || $("act-prompt").placeholder, chat: $("act-chat").checked }; }
+$("act-run").addEventListener("click", async () => {
+  showMsg("act-msg", ""); $("act-run").disabled = true;
+  try {
+    $("act-progress").hidden = false;
+    const r = await runTask("/api/analyze", actParams(), (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
+    S.analysis = r; S.pos = r.tokens.length - 1; S.layerFocus = null;
+    showMsg("act-msg", r.truncated ? `Showing the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "", r.truncated ? "warn" : "");
+    $("act-result").hidden = false; renderAnalysis();
+  } catch (e) { showMsg("act-msg", e.message, "error"); }
+  finally { $("act-run").disabled = false; $("act-progress").hidden = true; }
+});
+$("act-save").addEventListener("click", async () => {
+  showMsg("act-msg", ""); $("act-save").disabled = true;
+  try {
+    $("act-progress").hidden = false;
+    const r = await runTask("/api/export", actParams(), (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
+    showMsg("act-msg", "");
+    const box = $("act-saved"); box.hidden = false;
+    const code = `import torch\nd = torch.load("${r.path}")\nacts = d["residual_stream"]   # shape ${JSON.stringify(r.shape)}: [layers + 1, tokens, width]\ntokens = d["tokens"]`;
+    box.replaceChildren(
+      el("p", { class: "msg ok", text: `Saved activations with shape [${r.shape.join(", ")}] (${nf(1).format(r.size_mb)} MB) to ${r.path} on the cluster.` }),
+      el("p", { style: "margin-top:8px" }, el("a", { href: "/api/exports/" + encodeURIComponent(r.name), text: "Download the file", download: r.name }),
+         document.createTextNode(", or load it in your own code on the cluster:")),
+      el("pre", {}, el("code", { text: code })));
+  } catch (e) { showMsg("act-msg", e.message, "error"); }
+  finally { $("act-save").disabled = false; $("act-progress").hidden = true; }
+});
+$("act-prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $("act-run").click(); } });
+document.querySelectorAll("input[name=scale]").forEach((r) => r.addEventListener("change", drawHeat));
+$("skip-first").addEventListener("change", drawHeat);
+
+function renderAnalysis() {
+  const r = S.analysis, box = $("act-tokens"); box.replaceChildren();
+  r.tokens.forEach((t, i) => {
+    const b = el("button", { class: "tok", type: "button", "aria-pressed": String(i === S.pos), title: `Token ${i}` }, tokenNode(t));
+    b.addEventListener("click", () => { S.pos = i; S.layerFocus = null; renderAnalysis(); });
+    box.append(b);
+  });
+  $("skip-first").parentElement.hidden = r.tokens.length < 3;
+  drawHeat(); drawLens(); drawNormTable();
+}
+function heatScale() {
+  const r = S.analysis, mode = document.querySelector("input[name=scale]:checked").value;
+  const skip = $("skip-first").checked && r.tokens.length >= 3 ? 1 : 0;
+  if (mode === "global") {
+    let lo = Infinity, hi = -Infinity;
+    r.norms.forEach((row) => row.forEach((v, j) => { if (j >= skip && v > 0) { lo = Math.min(lo, Math.log(v)); hi = Math.max(hi, Math.log(v)); } }));
+    return { mode, lo, hi, f: (v) => (hi > lo ? (Math.log(Math.max(v, 1e-9)) - lo) / (hi - lo) : 0.5) };
+  }
+  const ranges = r.norms.map((row) => {
+    const vals = row.filter((_, j) => j >= skip);
+    return [Math.min(...vals), Math.max(...vals)];
+  });
+  return { mode, ranges, f: (v, li) => { const [a, b] = ranges[li]; return b > a ? (v - a) / (b - a) : 0.5; } };
+}
+function drawHeat() {
+  const r = S.analysis; if (!r) return;
+  const host = $("heat"); host.replaceChildren();
+  const L = r.norms.length, T = r.tokens.length, sc = heatScale();
+  const W = Math.max(320, host.clientWidth || 640), left = 46, bottom = T <= 24 ? 64 : 92, top = 6, right = 6;
+  const cw = Math.max(4, Math.floor((W - left - right) / T)), ch = Math.max(5, Math.min(16, Math.floor(520 / L)));
+  const plotW = cw * T, plotH = ch * L, H = top + plotH + bottom;
+  const s = svg("svg", { width: left + plotW + right, height: H, class: "heat", role: "img",
+    "aria-label": `Heatmap of residual stream size, ${L - 1} layers by ${T} tokens. The table below has the same numbers.` });
+  const g = svg("g", { transform: `translate(${left},${top})` }); s.append(g);
+  for (let li = 0; li < L; li++) {
+    const y = plotH - (li + 1) * ch;
+    for (let j = 0; j < T; j++) {
+      const v = r.norms[li][j];
+      const rect = svg("rect", { class: "cell", x: j * cw, y, width: Math.max(1, cw - (cw > 6 ? 1 : 0)), height: Math.max(1, ch - (ch > 6 ? 1 : 0)), fill: rampColor(sc.f(v, li)) });
+      rect.addEventListener("pointermove", (e) => showTip(e, fmt(v, 4), `${li === 0 ? "Embeddings" : "After layer " + li}, token ${j}: ${tokenText(r.tokens[j])}`));
+      rect.addEventListener("pointerleave", hideTip);
+      rect.addEventListener("click", () => { S.pos = j; S.layerFocus = li; renderAnalysis(); });
+      g.append(rect);
+    }
+  }
+  // selected token column
+  g.append(svg("rect", { x: S.pos * cw - 1, y: -1, width: cw + 1, height: plotH + 1, fill: "none", stroke: "#b3a369", "stroke-width": 2, rx: 2 }));
+  // y axis
+  const step = L > 40 ? 8 : L > 16 ? 4 : L > 8 ? 2 : 1;
+  for (let li = 0; li < L; li += step) {
+    const y = plotH - li * ch - ch / 2 + 4;
+    const t = svg("text", { x: -8, y, "text-anchor": "end", "font-size": 11, fill: "#5b6672" }); t.textContent = li === 0 ? "emb" : li; g.append(t);
+  }
+  const yl = svg("text", { transform: `translate(${-left + 10},${plotH / 2}) rotate(-90)`, "text-anchor": "middle", "font-size": 11, fill: "#5b6672" });
+  yl.textContent = "Layer"; g.append(yl);
+  g.append(svg("line", { x1: 0, x2: plotW, y1: plotH + .5, y2: plotH + .5, stroke: "#c3c2b7" }));
+  // x labels
+  const every = Math.max(1, Math.ceil(T / Math.floor(plotW / (T <= 24 ? 46 : 14))));
+  for (let j = 0; j < T; j += every) {
+    const label = tokenText(r.tokens[j]).slice(0, 12);
+    const x = j * cw + cw / 2;
+    const t = svg("text", { "font-size": 11, fill: j === S.pos ? "#1f2a36" : "#5b6672", "font-weight": j === S.pos ? 600 : 400 });
+    if (T <= 24) { t.setAttribute("x", x); t.setAttribute("y", plotH + 16); t.setAttribute("text-anchor", "middle"); }
+    else { t.setAttribute("transform", `translate(${x + 3},${plotH + 8}) rotate(60)`); }
+    t.textContent = label; g.append(t);
+  }
+  host.append(s);
+  // subtitle and legend
+  $("heat-sub").textContent = `${L - 1} layers (bottom: embeddings, top: last layer) by ${T} tokens. Darker means a larger vector norm.`;
+  const lg = $("heat-legend"); lg.replaceChildren();
+  const ramp = el("span", { class: "ramp" }); ramp.style.background = `linear-gradient(90deg, ${RAMP.join(",")})`;
+  if (sc.mode === "global") lg.append(el("span", { text: fmt(Math.exp(sc.lo), 3) }), ramp, el("span", { text: fmt(Math.exp(sc.hi), 3) }));
+  else lg.append(el("span", { text: "Smallest" }), ramp, el("span", { text: "largest in its layer" }));
+}
+function drawLens() {
+  const r = S.analysis, pos = S.pos, tbl = $("lens"); tbl.replaceChildren();
+  $("lens-title").replaceChildren(document.createTextNode("Prediction after "), el("code", { text: tokenText(r.tokens[pos]) }), document.createTextNode(" at each layer"));
+  const warn = $("lens-warn");
+  warn.hidden = r.lens_matches_output;
+  warn.textContent = r.lens_matches_output ? "" : "The last row doesn't exactly match the model's real output for every token, so this model applies extra steps the readout doesn't copy. Treat the earlier rows as approximate.";
+  tbl.append(el("thead", {}, el("tr", {}, el("th", { text: "Layer" }), el("th", { text: "Top prediction" }), el("th", { text: "Next most likely" }))));
+  const tb = el("tbody");
+  for (let li = r.lens_ids.length - 1; li >= 0; li--) {
+    const ids = r.lens_ids[li][pos], ps = r.lens_p[li][pos];
+    const p0 = ps[0], bar = el("span", { class: "pbar" }, el("span"));
+    bar.firstChild.style.width = (100 * p0).toFixed(1) + "%";
+    const rest = ids.slice(1).map((id, k) => `${tokenText(r.vocab[id])} ${prob(ps[k + 1])}`).join("   ");
+    const tr = el("tr", { class: (li === S.layerFocus ? "focus " : "") + (li === r.lens_ids.length - 1 ? "out" : "") },
+      el("td", { class: "layer", text: li === 0 ? "emb" : (li === r.lens_ids.length - 1 ? `${li} (output)` : String(li)) }),
+      el("td", {}, el("div", { class: "top" }, el("span", { class: "t", text: tokenText(r.vocab[ids[0]]) }), bar, el("span", { class: "pv", text: prob(p0) }))),
+      el("td", { class: "rest", text: rest, title: rest }));
+    tb.append(tr);
+  }
+  tbl.append(tb);
+  const f = tbl.querySelector("tr.focus"); if (f) f.scrollIntoView({ block: "nearest" });
+}
+function drawNormTable() {
+  const r = S.analysis, host = $("norm-table"), t = el("table", { class: "plain" });
+  const head = el("tr", {}, el("th", { text: "Layer" }));
+  r.tokens.forEach((tok, j) => head.append(el("th", { text: `${j}: ${tokenText(tok).slice(0, 10)}` })));
+  t.append(el("thead", {}, head));
+  const tb = el("tbody");
+  for (let li = r.norms.length - 1; li >= 0; li--) {
+    const tr = el("tr", {}, el("th", { text: li === 0 ? "emb" : String(li) }));
+    r.norms[li].forEach((v) => tr.append(el("td", { text: fmt(v, 4) })));
+    tb.append(tr);
+  }
+  t.append(tb); host.replaceChildren(t);
+}
+addEventListener("resize", () => { if (S.analysis && currentTab() === "p-act") drawHeat(); });
+
+// ------------------------------------------------------------------ weights
+async function loadWeights() {
+  if (S.weights || !(S.status && S.status.model)) { renderWeightList(); return; }
+  try { S.weights = await api("/api/weights"); } catch (e) { $("w-count").textContent = e.message; return; }
+  renderWeightList();
+}
+function renderWeightList() {
+  const ul = $("w-list"); ul.replaceChildren();
+  if (!S.weights) { $("w-count").textContent = "Load a model to list its parameters."; return; }
+  const q = $("w-filter").value.trim().toLowerCase();
+  const rows = S.weights.params.filter((p) => !q || p.name.toLowerCase().includes(q));
+  $("w-count").textContent = `${fmtInt.format(rows.length)} of ${fmtInt.format(S.weights.params.length)} parameters`;
+  for (const p of rows.slice(0, 2000)) {
+    const b = el("button", { type: "button", "aria-pressed": String(p.name === S.wSelected) },
+      el("span", { class: "n", text: p.name }), el("span", { class: "s", text: `[${p.shape.map((x) => fmtInt.format(x)).join(" × ")}]  ${p.dtype}` }));
+    b.addEventListener("click", () => selectWeight(p.name));
+    ul.append(el("li", {}, b));
+  }
+}
+$("w-filter").addEventListener("input", renderWeightList);
+async function selectWeight(name) {
+  S.wSelected = name; renderWeightList();
+  $("w-empty").hidden = true; $("w-body").hidden = false; $("w-name").textContent = name;
+  $("w-stats").replaceChildren(); $("hist").replaceChildren(); $("sv").replaceChildren(); $("sv-copied").textContent = "";
+  $("w-body").style.opacity = .5;
+  try {
+    const r = await runTask("/api/weights/stats", { name }, (t) => showMsg("w-msg", t.progress || ""));
+    if (S.wSelected !== name) return;
+    showMsg("w-msg", r.sampled ? "The histogram uses a random sample of 4 million values; the other statistics use every value." : "");
+    renderWeightStats(r);
+  } catch (e) { showMsg("w-msg", e.message, "error"); }
+  finally { $("w-body").style.opacity = 1; }
+}
+function renderWeightStats(r) {
+  const g = $("w-stats"); g.replaceChildren();
+  const add = (k, v) => g.append(el("div", {}, el("p", { class: "k", text: k }), el("p", { class: "v", text: v })));
+  add("Shape", r.shape.map((x) => fmtInt.format(x)).join(" × ") || "scalar");
+  add("Values", fmtInt.format(r.numel));
+  add("Mean", fmt(r.mean)); add("Standard deviation", fmt(r.std));
+  add("Min", fmt(r.min)); add("Max", fmt(r.max));
+  add("Frobenius norm", fmt(r.frobenius, 4));
+  if (r.singular_values) {
+    add("Spectral norm", fmt(r.spectral_norm, 4)); add("Stable rank", fmt(r.stable_rank, 4)); add("Effective rank", fmt(r.effective_rank, 4));
+  }
+  drawHist(r);
+  $("sv-box").hidden = !r.singular_values && !r.sv_note;
+  if (r.singular_values) drawSV(r.singular_values);
+  else { $("sv-sub").textContent = r.sv_note || ""; $("sv").replaceChildren(); }
+  S.lastSV = r.singular_values;
+}
+function niceTicks(lo, hi, n = 4) {
+  const span = hi - lo || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => span / s <= n) || 10 * mag;
+  const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-12; v += step) out.push(+v.toPrecision(12));
+  return out;
+}
+function drawHist(r) {
+  const h = r.hist, host = $("hist"); host.replaceChildren();
+  const n = h.counts.length, W = Math.max(300, host.clientWidth || 420), H = 200, m = { l: 52, r: 8, t: 8, b: 28 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, maxC = Math.max(...h.counts, 1);
+  const s = svg("svg", { width: W, height: H, role: "img", "aria-label": "Histogram of parameter values" });
+  const g = svg("g", { transform: `translate(${m.l},${m.t})` }); s.append(g);
+  for (const v of niceTicks(0, maxC, 3)) {
+    const y = ph - (v / maxC) * ph;
+    g.append(svg("line", { x1: 0, x2: pw, y1: y + .5, y2: y + .5, stroke: "#e1e0d9" }));
+    const t = svg("text", { x: -8, y: y + 4, "text-anchor": "end", "font-size": 11, fill: "#898781" }); t.textContent = fmtCompact(v); g.append(t);
+  }
+  const bw = pw / n, gap = bw > 6 ? 2 : bw > 3 ? 1 : 0;
+  h.counts.forEach((c, i) => {
+    const bh = (c / maxC) * ph, x = i * bw, a = h.lo + (h.hi - h.lo) * i / n, b = h.lo + (h.hi - h.lo) * (i + 1) / n;
+    if (bh > 0) {
+      const rr = Math.min(2, (bw - gap) / 2, bh);
+      g.append(svg("path", { d: barPath(x + gap / 2, ph - bh, bw - gap, bh, rr), fill: "#2a78d6" }));
+    }
+    const hit = svg("rect", { x, y: 0, width: bw, height: ph, fill: "transparent" });
+    hit.addEventListener("pointermove", (e) => showTip(e, fmtInt.format(c) + " values", `between ${fmt(a)} and ${fmt(b)}`));
+    hit.addEventListener("pointerleave", hideTip);
+    g.append(hit);
+  });
+  g.append(svg("line", { x1: 0, x2: pw, y1: ph + .5, y2: ph + .5, stroke: "#c3c2b7" }));
+  for (const v of niceTicks(h.lo, h.hi, 4)) {
+    const x = ((v - h.lo) / (h.hi - h.lo)) * pw;
+    const t = svg("text", { x, y: ph + 18, "text-anchor": "middle", "font-size": 11, fill: "#898781" }); t.textContent = fmt(v, 2); g.append(t);
+  }
+  host.append(s);
+  const tail = h.below + h.above;
+  $("hist-sub").textContent = `${n} bins covering the middle 99.8% of values.` + (tail ? ` ${fmtInt.format(tail)} values fall outside that range.` : "");
+}
+function barPath(x, y, w, h, r) { // rounded top, square at the baseline
+  return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+}
+function fmtCompact(v) { return new Intl.NumberFormat(undefined, { notation: v >= 10000 ? "compact" : "standard", maximumFractionDigits: 1 }).format(v); }
+function drawSV(sv) {
+  const host = $("sv"); host.replaceChildren();
+  const W = Math.max(300, host.clientWidth || 420), H = 200, m = { l: 52, r: 12, t: 8, b: 28 };
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, n = sv.length;
+  const pos = sv.filter((v) => v > 0), lo = Math.log10(Math.max(Math.min(...pos), sv[0] * 1e-6)), hi = Math.log10(sv[0]);
+  const ys = (v) => ph - ((Math.log10(Math.max(v, 10 ** lo)) - lo) / (hi - lo || 1)) * ph;
+  const xs = (i) => (n > 1 ? (i / (n - 1)) * pw : pw / 2);
+  const s = svg("svg", { width: W, height: H, role: "img", "aria-label": "Singular values, largest first, on a log scale" });
+  const g = svg("g", { transform: `translate(${m.l},${m.t})` }); s.append(g);
+  for (let e = Math.ceil(lo); e <= Math.floor(hi); e++) {
+    const y = ys(10 ** e);
+    g.append(svg("line", { x1: 0, x2: pw, y1: y + .5, y2: y + .5, stroke: "#e1e0d9" }));
+    const t = svg("text", { x: -8, y: y + 4, "text-anchor": "end", "font-size": 11, fill: "#898781" }); t.textContent = fmt(10 ** e, 1); g.append(t);
+  }
+  const step = Math.max(1, Math.floor(n / 1200));
+  let d = ""; for (let i = 0; i < n; i += step) d += (d ? "L" : "M") + xs(i).toFixed(1) + "," + ys(sv[i]).toFixed(1);
+  g.append(svg("path", { d, fill: "none", stroke: "#2a78d6", "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  g.append(svg("line", { x1: 0, x2: pw, y1: ph + .5, y2: ph + .5, stroke: "#c3c2b7" }));
+  for (const v of niceTicks(1, n, 4)) {
+    const t = svg("text", { x: xs(v - 1), y: ph + 18, "text-anchor": "middle", "font-size": 11, fill: "#898781" }); t.textContent = fmtInt.format(v); g.append(t);
+  }
+  const cross = svg("line", { y1: 0, y2: ph, stroke: "#898781", "stroke-width": 1, visibility: "hidden" });
+  const dot = svg("circle", { r: 4, fill: "#2a78d6", stroke: "#fff", "stroke-width": 2, visibility: "hidden" });
+  g.append(cross, dot);
+  const hit = svg("rect", { x: 0, y: 0, width: pw, height: ph, fill: "transparent" });
+  hit.addEventListener("pointermove", (e) => {
+    const bx = hit.getBoundingClientRect(), i = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - bx.left) / bx.width) * (n - 1))));
+    cross.setAttribute("x1", xs(i)); cross.setAttribute("x2", xs(i)); cross.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", xs(i)); dot.setAttribute("cy", ys(sv[i])); dot.setAttribute("visibility", "visible");
+    showTip(e, fmt(sv[i], 5), `singular value ${fmtInt.format(i + 1)} of ${fmtInt.format(n)}`);
+  });
+  hit.addEventListener("pointerleave", () => { hideTip(); cross.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); });
+  g.append(hit);
+  host.append(s);
+  $("sv-sub").textContent = `All ${fmtInt.format(n)}, largest first, on a log scale.`;
+}
+$("sv-copy").addEventListener("click", async () => {
+  if (!S.lastSV) return;
+  try { await navigator.clipboard.writeText(S.lastSV.join("\n")); $("sv-copied").textContent = "Copied."; }
+  catch { $("sv-copied").textContent = "Your browser blocked copying."; }
+});
+
+// ------------------------------------------------------------------ start
+(async function init() {
+  await refreshStatus();
+  await refreshModels();
+  if (S.status && S.status.model) onModelChanged(S.status.model);
+  setInterval(refreshStatus, 5000);
+})();
+</script>
+</body>
+</html>

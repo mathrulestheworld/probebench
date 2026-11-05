@@ -1,0 +1,25 @@
+Bootstrap: docker
+From: python:3.12-slim
+
+# Apptainer container for Probe Bench: inference and interpretability probing of
+# open-weight language models. PyTorch is the CUDA 12.8 build (cu128), which the
+# ISyE RTX 5090s require; it also runs on the A100s, A6000s and RTX 5000 Ada cards.
+#
+# Build:  apptainer build lab.sif lab.def      (probebench setup does this for you)
+
+%post
+    pip install --no-cache-dir torch==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+    pip install --no-cache-dir \
+        transformers==5.22.1 accelerate safetensors sentencepiece \
+        nnsight==0.8.2 \
+        jupyterlab ipykernel
+    # Optional: fast kernels for Qwen 3.5's linear-attention layers. Without it they
+    # still work, just more slowly, so a failed install doesn't stop the build.
+    pip install --no-cache-dir flash-linear-attention || echo "flash-linear-attention skipped"
+
+%environment
+    # Keep packages from ~/.local (your shared home folder) out of the container
+    export PYTHONNOUSERSITE=1
+
+%runscript
+    exec python "$@"

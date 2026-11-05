@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+app.key
+app.port
+setup-done
+logs/
+.DS_Store

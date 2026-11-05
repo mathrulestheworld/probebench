@@ -1,0 +1,449 @@
+#!/usr/bin/env bash
+# Probe Bench launcher. Run it on your Mac (works with the bash that comes with macOS).
+#
+#   probebench setup              first-time setup: SSH, container, a first model
+#   probebench                    start a GPU session and open it in your browser
+#   probebench help               all commands
+#
+# It talks to the ISyE cluster over SSH through the castle gateway and compute01,
+# using the HTCondor scripts in the cluster/ folder next to this file.
+set -o pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+CONF="$HOME/.probebench.conf"
+SSH_CONFIG="$HOME/.ssh/config"
+GW="probebench-gw"
+SUBMIT="probebench-submit"
+# shellcheck disable=SC2088  # expanded by the shell on the cluster
+RLAB='~/probebench'
+DEFAULT_MODEL="google/gemma-4-12B-it"
+DEFAULT_MODEL_SIZE="22 GB"
+
+if [ -t 1 ]; then
+  CLR=$'\033[K'
+  B=$'\033[1m'; D=$'\033[2m'; R=$'\033[0m'; RED=$'\033[31m'; GRN=$'\033[32m'; YLW=$'\033[33m'
+else
+  CLR=""; B=""; D=""; R=""; RED=""; GRN=""; YLW=""
+fi
+say()  { printf '%s\n' "$*"; }
+step() { printf '%s==>%s %s%s%s\n' "$GRN" "$R" "$B" "$*" "$R"; }
+note() { printf '    %s%s%s\n' "$D" "$*" "$R"; }
+warn() { printf '%s%s%s\n' "$YLW" "$*" "$R" >&2; }
+die()  { printf '%sError:%s %s\n' "$RED" "$R" "$*" >&2; exit 1; }
+ask_yes() { local a; read -r -p "$1 [Y/n] " a || return 1; case "$a" in [nN]*) return 1 ;; *) return 0 ;; esac; }
+elapsed() { local s=$(( $(date +%s) - $1 )); printf '%dm %02ds' $((s / 60)) $((s % 60)); }
+
+# ------------------------------------------------------------------ config & ssh
+load_conf() {
+  ISYE_USER=""; GATEWAY="castle.isye.gatech.edu"
+  # shellcheck disable=SC1090
+  [ -f "$CONF" ] && . "$CONF"
+}
+save_conf() { printf 'ISYE_USER=%s\nGATEWAY=%s\n' "$ISYE_USER" "$GATEWAY" > "$CONF"; }
+need_conf() {
+  load_conf
+  [ -n "$ISYE_USER" ] || die "Probe Bench isn't set up on this Mac yet. Run: probebench setup"
+  grep -q "^Host $GW\$" "$SSH_CONFIG" 2>/dev/null || die "The SSH settings are missing. Run: probebench setup"
+}
+
+ensure_ssh_config() {
+  mkdir -p "$HOME/.ssh" && chmod 700 "$HOME/.ssh"
+  touch "$SSH_CONFIG" && chmod 600 "$SSH_CONFIG"
+  local tmp; tmp=$(mktemp)
+  awk '/^# >>> probebench >>>/{skip=1} !skip{print} /^# <<< probebench <<</{skip=0}' "$SSH_CONFIG" > "$tmp"
+  cat >> "$tmp" <<EOF
+# >>> probebench >>>  (written by probebench setup; safe to delete)
+Host $GW
+    HostName $GATEWAY
+    User $ISYE_USER
+    ControlMaster auto
+    ControlPath ~/.ssh/cm-%r@%h:%p
+    ControlPersist 8h
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    StrictHostKeyChecking accept-new
+Host $SUBMIT
+    HostName compute01
+    User $ISYE_USER
+    ProxyJump $GW
+    ControlMaster auto
+    ControlPath ~/.ssh/cm-%r@%h:%p
+    ControlPersist 8h
+    ServerAliveInterval 60
+    ServerAliveCountMax 3
+    StrictHostKeyChecking accept-new
+# <<< probebench <<<
+EOF
+  cat "$tmp" > "$SSH_CONFIG" && rm -f "$tmp"
+}
+
+ensure_connected() {
+  ssh -O check "$GW" >/dev/null 2>&1 && return 0
+  step "Logging in to the ISyE gateway as $ISYE_USER"
+  note "Enter your Georgia Tech password, then approve Duo (type 1 for a push)."
+  ssh -o ConnectTimeout=25 "$GW" true ||
+    die "Couldn't log in to $GATEWAY. Check your username and password and try again. If castle is down, run: probebench gateway keep"
+}
+
+# -n: never let a background cluster call swallow what you type in Terminal.
+rsh() { ssh -n -o BatchMode=yes -o ConnectTimeout=25 "$SUBMIT" "$@"; }
+rsh_stdin() { ssh -o BatchMode=yes -o ConnectTimeout=25 "$SUBMIT" "$@"; }
+labctl() { rsh "bash $RLAB/app/labctl.sh $*"; }
+
+check_submit_login() {
+  rsh true 2>/dev/null && return 0
+  die "Couldn't log in to compute01 with your SSH key. Run: probebench setup"
+}
+
+sync_app() {
+  [ -f "$HERE/cluster/labctl.sh" ] || die "Can't find the cluster files in $HERE/cluster. Keep the probebench folder together."
+  (cd "$HERE/cluster" && COPYFILE_DISABLE=1 tar -cf - .) |
+    rsh_stdin "mkdir -p $RLAB/app && tar -C $RLAB/app -xf - 2>/dev/null; chmod +x $RLAB/app/*.sh; test -f $RLAB/app/labctl.sh" ||
+    die "Couldn't copy Probe Bench to the cluster."
+}
+
+pick_key() {
+  local k
+  for k in id_ed25519 id_ecdsa id_rsa; do
+    if [ -f "$HOME/.ssh/$k" ] && [ -f "$HOME/.ssh/$k.pub" ]; then KEY="$HOME/.ssh/$k"; return 0; fi
+  done
+  return 1
+}
+
+# ------------------------------------------------------------------ jobs
+wait_job() {  # wait_job <cluster id> <build|download>
+  local jid=$1 kind=$2 start; start=$(date +%s)
+  local st msg prog
+  while :; do
+    st=$(labctl job-state "$jid") || st="UNKNOWN"
+    case "$st" in
+      IDLE) msg="Waiting for a machine" ;;
+      RUNNING)
+        msg="Running"
+        if [ "$kind" = download ]; then
+          prog=$(labctl download-progress "$jid")
+          case "$prog" in PROGRESS*) set -- $prog; msg="Downloading: $4 of $(awk -v b="$3" 'BEGIN{printf "%.1f GB", b/1073741824}')" ;; esac
+        fi ;;
+      HELD*) printf '\n'; labctl job-log "$jid" "$kind"; labctl stop-job "$jid" >/dev/null 2>&1
+             die "HTCondor held the $kind job: ${st#HELD }" ;;
+      DONE*)
+        printf '\n'
+        if [ "${st#DONE }" = 0 ]; then
+          if [ "$kind" = download ] && labctl download-progress "$jid" | grep -q '^ERROR'; then
+            die "$(labctl download-progress "$jid" | sed 's/^ERROR //')"
+          fi
+          return 0
+        fi
+        if [ "$kind" = download ] && labctl download-progress "$jid" | grep -q '^ERROR'; then
+          die "$(labctl download-progress "$jid" | sed 's/^ERROR //')"
+        fi
+        labctl job-log "$jid" "$kind"; die "The $kind job failed. Its log is above." ;;
+      REMOVED) printf '\n'; die "The $kind job was removed." ;;
+      *) msg="Checking" ;;
+    esac
+    printf '\r%s    %s (%s)' "$CLR" "$msg" "$(elapsed "$start")"
+    sleep 10
+  done
+}
+
+# ------------------------------------------------------------------ sessions
+SID=""; JID=""; TPID=""; ENDED=""; KEEP=""; LPORT=""; HOST=""; PORT=""; MODE=""
+TUNNEL_LOG="${TMPDIR:-/tmp}/probebench-tunnel.$$.log"
+
+cleanup() {
+  [ -n "$TPID" ] && kill "$TPID" 2>/dev/null
+  rm -f "$TUNNEL_LOG"
+  if [ -n "$SID" ] && [ -z "$ENDED" ] && [ -z "$KEEP" ]; then
+    printf '\n'; step "Ending the session and freeing the GPU"
+    if labctl stop "$SID" >/dev/null 2>&1; then say "Done. The GPU is free again."
+    else warn "Couldn't reach the cluster to end the session. It ends by itself after its idle time, or run: probebench stop"; fi
+  fi
+}
+
+free_port() {
+  local p
+  for p in $(seq 7860 7899); do
+    if ! (exec 3<>"/dev/tcp/127.0.0.1/$p") 2>/dev/null; then echo "$p"; return; fi
+  done
+  echo 7860
+}
+
+wait_ready() {
+  local start st hinted="" msg; start=$(date +%s)
+  while :; do
+    st=$(labctl session-state "$SID") || st="UNKNOWN"
+    case "$st" in
+      WAITING)
+        msg="Waiting for a free GPU"
+        if [ -z "$hinted" ] && [ $(( $(date +%s) - start )) -gt 180 ]; then
+          hinted=1; printf '\n'
+          note "GPUs are busy right now. HTCondor's view of your request:"
+          labctl why "$SID" | sed 's/^/      /'
+          note "You can keep waiting, or press Ctrl+C and try a smaller request (for example --gpu-mem 24 for small models)."
+        fi ;;
+      STARTING*) msg="Got a GPU on ${st#STARTING }; starting the server" ;;
+      READY*) set -- $st; HOST=$2; PORT=$3; JID=$4; printf '\n'; return 0 ;;
+      HELD*) printf '\n'; labctl log "$SID"; die "HTCondor held the session: ${st#HELD }" ;;
+      ENDED*) printf '\n'; labctl log "$SID"; ENDED=1; die "The session stopped before it was ready. Its log is above." ;;
+      *) msg="Checking" ;;
+    esac
+    printf '\r%s    %s (%s)' "$CLR" "$msg" "$(elapsed "$start")"
+    sleep 5
+  done
+}
+
+start_tunnel() {
+  if [ "$MODE" = direct ]; then
+    ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes \
+      -L "127.0.0.1:$LPORT:$HOST:$PORT" "$SUBMIT" >"$TUNNEL_LOG" 2>&1 </dev/null &
+  else
+    local rport=$(( 20000 + RANDOM % 30000 ))
+    ssh -o BatchMode=yes -o ExitOnForwardFailure=yes -L "127.0.0.1:$LPORT:127.0.0.1:$rport" "$SUBMIT" \
+      "condor_ssh_to_job -ssh 'ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:$rport:127.0.0.1:$PORT' $JID" \
+      >"$TUNNEL_LOG" 2>&1 </dev/null &
+  fi
+  TPID=$!
+}
+
+tunnel_ok() {
+  for _ in $(seq 1 25); do
+    if curl -fsS -m 3 "http://127.0.0.1:$LPORT/health" 2>/dev/null | grep -q "\"$SID\""; then return 0; fi
+    kill -0 "$TPID" 2>/dev/null || return 1
+    sleep 1
+  done
+  return 1
+}
+
+open_tunnel() {
+  LPORT=$(free_port)
+  if [ "$(labctl check-port "$HOST" "$PORT")" = OK ]; then MODE=direct; else MODE=condor; fi
+  start_tunnel
+  tunnel_ok && return 0
+  kill "$TPID" 2>/dev/null; wait "$TPID" 2>/dev/null
+  if [ "$MODE" = direct ]; then
+    MODE=condor; start_tunnel
+    tunnel_ok && return 0
+    kill "$TPID" 2>/dev/null
+  fi
+  cat "$TUNNEL_LOG" >&2
+  return 1
+}
+
+monitor() {
+  local n=0 st
+  while :; do
+    sleep 5; n=$((n + 1))
+    if ! kill -0 "$TPID" 2>/dev/null; then
+      ssh -O check "$GW" >/dev/null 2>&1 || ensure_connected
+      st=$(labctl session-state "$SID" 2>/dev/null)
+      case "$st" in
+        READY*) note "The connection dropped; reconnecting."; start_tunnel; tunnel_ok && note "Reconnected." ;;
+        "") warn "Can't reach the cluster. Is your Mac online? Retrying." ;;
+        *) ENDED=1; say "The session has ended (${st#ENDED })."; return ;;
+      esac
+    elif [ $((n % 6)) -eq 0 ]; then
+      st=$(labctl session-state "$SID" 2>/dev/null)
+      case "$st" in
+        READY*|"") ;;
+        *) ENDED=1; printf '\n'; say "The session has ended. Start a new one any time with: probebench"; return ;;
+      esac
+    fi
+  done
+}
+
+connect() {
+  step "Waiting for the session to start"
+  wait_ready
+  step "Connecting your browser to $HOST"
+  local token; token=$(labctl token "$SID") || die "Couldn't read the session's access key."
+  open_tunnel || die "Couldn't connect to the session. Run probebench logs to see what happened."
+  local url="http://127.0.0.1:$LPORT/?token=$token"
+  if command -v open >/dev/null 2>&1; then open "$url"
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$url" >/dev/null 2>&1; fi
+  say ""
+  say "${B}Probe Bench is open in your browser.${R} If it didn't open, go to:"
+  say "    $url"
+  say ""
+  note "Keep this window open while you work."
+  note "Press Ctrl+C here to end the session and free the GPU."
+  if [ -n "$IDLE" ]; then
+    note "If you leave it unused for $IDLE minute$([ "$IDLE" = 1 ] || echo s), it ends by itself."
+  else
+    note "If you leave it unused, it ends by itself after its idle time."
+  fi
+  monitor
+}
+
+# ------------------------------------------------------------------ commands
+cmd_setup() {
+  load_conf
+  step "Setting up Probe Bench on this Mac"
+  if [ -z "$ISYE_USER" ]; then
+    read -r -p "Your Georgia Tech username (the part before @gatech.edu): " ISYE_USER || die "No username given."
+  fi
+  ISYE_USER=$(printf '%s' "$ISYE_USER" | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+  [[ "$ISYE_USER" =~ ^[a-z][a-z0-9]*$ ]] || die "'$ISYE_USER' doesn't look like a Georgia Tech username (for example gburdell3)."
+  save_conf
+  ensure_ssh_config
+  note "Added SSH settings for $GW and $SUBMIT to ~/.ssh/config."
+
+  if ! pick_key; then
+    step "Creating an SSH key for this Mac"
+    note "You can press Enter twice to skip the passphrase."
+    ssh-keygen -q -t ed25519 -f "$HOME/.ssh/id_ed25519" -C "$ISYE_USER probebench" || die "Couldn't create an SSH key."
+    KEY="$HOME/.ssh/id_ed25519"
+  fi
+
+  ensure_connected
+  if ! rsh true 2>/dev/null; then
+    step "Adding your SSH key to the cluster"
+    local pub; pub=$(cat "$KEY.pub")
+    ssh "$GW" "umask 077; mkdir -p ~/.ssh; touch ~/.ssh/authorized_keys; grep -qxF '$pub' ~/.ssh/authorized_keys || echo '$pub' >> ~/.ssh/authorized_keys" ||
+      die "Couldn't add your key on the cluster."
+    rsh true 2>/dev/null || die "compute01 still won't accept your SSH key. Ask the ISyE helpdesk whether your account has cluster access."
+  fi
+  say "    Logged in to compute01."
+
+  step "Copying Probe Bench to the cluster"
+  sync_app
+
+  step "Checking the container"
+  local st jid; st=$(labctl container-status)
+  case "$st" in
+    sandbox*) say "    The container is ready." ;;
+    *)
+      if [ "$st" = missing ] && [ "$(labctl link-existing)" = linked ]; then
+        say "    Using the container you already built in ~/probe."
+        st="sif"
+      fi
+      if [ "$st" = missing ]; then note "Building it in a CPU-only job. This takes 10 to 20 minutes."
+      else note "Unpacking it in a CPU-only job so sessions start faster. This takes a few minutes."; fi
+      jid=$(labctl build)
+      case "$jid" in ''|ERROR*) die "Couldn't submit the build job. ${jid#ERROR }" ;; esac
+      wait_job "$jid" build
+      [ "$(labctl container-status)" != missing ] || die "The build finished but there's no container. Run probebench setup again."
+      say "    The container is ready." ;;
+  esac
+
+  step "Checking your models"
+  local models; models=$(labctl models)
+  if [ -n "$models" ]; then
+    printf '%s\n' "$models" | sed 's/^/    /'
+  elif ask_yes "No models downloaded yet. Download $DEFAULT_MODEL now (about $DEFAULT_MODEL_SIZE, in a CPU-only job)?"; then
+    cmd_download "$DEFAULT_MODEL"
+  else
+    note "No models yet. Download one later with: probebench download org/model"
+  fi
+
+  local rc="$HOME/.zshrc"; [ "${SHELL##*/}" = bash ] && rc="$HOME/.bash_profile"
+  if ! grep -q "alias probebench=" "$rc" 2>/dev/null; then
+    if ask_yes "Add a 'probebench' command to your Terminal so you can run it from anywhere?"; then
+      printf '\nalias probebench='"'"'bash "%s/probebench"'"'"'\n' "$HERE" >> "$rc"
+      note "Added to $rc. Open a new Terminal window for it to take effect."
+    fi
+  fi
+  say ""
+  say "${B}All set.${R} Start a GPU session with: probebench"
+}
+
+cmd_start() {
+  GPU_GB=30; MEM_GB=32; IDLE=30
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --gpu-mem) GPU_GB=$2; shift 2 ;;
+      --mem) MEM_GB=$2; shift 2 ;;
+      --idle) IDLE=$2; shift 2 ;;
+      -h|--help) usage; exit 0 ;;
+      *) die "Unknown option $1. Run probebench help." ;;
+    esac
+  done
+  for v in "$GPU_GB" "$MEM_GB" "$IDLE"; do [[ "$v" =~ ^[0-9]+$ ]] || die "Options take whole numbers (got '$v')."; done
+  need_conf
+  ensure_connected
+  check_submit_login
+  sync_app
+  [ "$(labctl container-status)" != missing ] || die "The container isn't built yet. Run: probebench setup"
+
+  local live; live=$(labctl list)
+  if [ -n "$live" ]; then
+    # shellcheck disable=SC2046  # split the line into sid, job id, state
+    set -- $(printf '%s\n' "$live" | head -1)
+    say "You already have a session ($3, job $2)."
+    if ask_yes "Reconnect to it?"; then
+      SID=$1; IDLE=""
+      trap cleanup EXIT; trap 'exit 130' INT TERM; trap 'exit 129' HUP
+      connect; return
+    fi
+    ask_yes "Start a second session anyway? It holds another GPU." || exit 0
+  fi
+
+  trap cleanup EXIT; trap 'exit 130' INT TERM; trap 'exit 129' HUP
+  step "Asking HTCondor for a GPU with at least $GPU_GB GB of memory"
+  local out; out=$(labctl new-session "$((GPU_GB * 1000))" "$MEM_GB" "$IDLE")
+  case "$out" in ''|ERROR*) die "Couldn't submit the session. ${out#ERROR }" ;; esac
+  set -- $out; SID=$1; JID=$2
+  note "Session $SID (job $JID), $MEM_GB GB of RAM."
+  connect
+}
+
+cmd_download() {
+  [ -n "${1:-}" ] || die "Say which model, like: probebench download google/gemma-4-12B"
+  need_conf; ensure_connected; check_submit_login; sync_app
+  [ "$(labctl container-status)" != missing ] || die "The container isn't built yet. Run: probebench setup"
+  step "Downloading $1 in a CPU-only job"
+  local jid; jid=$(labctl download "$1")
+  case "$jid" in ''|ERROR*) die "${jid#ERROR }" ;; esac
+  wait_job "$jid" download
+  say "    Downloaded $1."
+}
+
+cmd_token() {
+  need_conf; ensure_connected; check_submit_login; sync_app
+  say "Create a token at https://huggingface.co/settings/tokens (Read access is enough)."
+  local tok; read -r -s -p "Paste it here (it won't be shown): " tok; printf '\n'
+  local out; out=$(printf '%s\n' "$tok" | rsh_stdin "bash $RLAB/app/labctl.sh save-token")
+  case "$out" in saved) say "Saved on the cluster, readable only by you." ;; *) die "${out#ERROR }" ;; esac
+}
+
+cmd_gateway() {
+  load_conf
+  case "${1:-}" in
+    castle|keep) GATEWAY="$1.isye.gatech.edu" ;;
+    *) die "Use: probebench gateway castle   or   probebench gateway keep" ;;
+  esac
+  [ -n "$ISYE_USER" ] || die "Run probebench setup first."
+  save_conf; ensure_ssh_config
+  say "Probe Bench now connects through $GATEWAY."
+}
+
+usage() {
+  cat <<EOF
+${B}Probe Bench${R}: run and inspect open-weight language models on the ISyE GPU cluster.
+
+  probebench setup                  first-time setup on this Mac
+  probebench                        start a GPU session and open it in your browser
+      --gpu-mem GB                  smallest GPU memory to accept (default 30)
+                                      24 adds smaller cards; 40 means A6000 or A100; 70 means A100 only
+      --mem GB                      RAM for the session (default 32; use 64 for models over 25 GB)
+      --idle MIN                    end the session after this many unused minutes (default 30)
+  probebench download org/model     download a model in a CPU-only job
+  probebench token                  save a Hugging Face token for gated models
+  probebench status                 container, models and sessions
+  probebench logs                   server log of the latest session
+  probebench stop                   end all your Probe Bench sessions
+  probebench gateway castle|keep    switch gateways if one is down
+EOF
+}
+
+case "${1:-start}" in
+  setup) shift; cmd_setup "$@" ;;
+  start|--gpu-mem|--mem|--idle) [ "${1:-}" = start ] && shift; cmd_start "$@" ;;
+  download) shift; cmd_download "$@" ;;
+  token) cmd_token ;;
+  status) need_conf; ensure_connected; check_submit_login; sync_app; labctl status ;;
+  logs) need_conf; ensure_connected; check_submit_login; labctl log ;;
+  stop) need_conf; ensure_connected; check_submit_login; sync_app; labctl stop-all; say "Ended all Probe Bench sessions." ;;
+  gateway) shift; cmd_gateway "$@" ;;
+  help|-h|--help) usage ;;
+  *) usage; exit 1 ;;
+esac
