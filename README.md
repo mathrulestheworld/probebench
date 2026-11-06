@@ -87,6 +87,8 @@ Click **Terminal** at the top of the app. It opens a panel with three tabs:
 - **Files:** browse your cluster home folder and read files without typing commands. Logs open at the end, and Follow reloads them every few seconds. Shortcuts go to job logs, sessions, saved activations and models. It's read-only; use the terminal to move or delete files.
 - **Commands Probe Bench ran:** every command the app has sent to the cluster, with what it printed. Routine status checks are hidden unless you ask for them. Copy the last 20 to send to someone helping you.
 
+In a GPU session, the **Console** button on the model page shows each request the page sends (Load model, Generate, Analyze, and so on) with the Python the session runs for it, ready to copy into your own scripts. The same lines go to the session's log on the cluster; the terminal's "Follow session log" button shows them live.
+
 If a job keeps getting stopped the moment it starts, which looks like it's stuck waiting, the app now says so and points you to the terminal.
 
 ### Gated models

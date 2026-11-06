@@ -430,6 +430,7 @@ body.drawer-open main { padding-bottom: 50vh; }
       <button class="chip-btn" type="button" data-cmd="condor_q -better-analyze $(condor_q -af ClusterId | tail -1)" title="condor_q -better-analyze on your newest job">Why is my job waiting?</button>
       <button class="chip-btn" type="button" data-cmd="cd ~/probebench/jobs && tail -n 30 $(ls -t *.log | head -1) $(ls -t *.out | head -1) $(ls -t *.err | head -1); cd - >/dev/null" title="The newest install or download job: its event log and its output">Latest job log</button>
       <button class="chip-btn" type="button" data-cmd="bash ~/probebench/app/labctl.sh log" title="The newest GPU session's server log">Latest session log</button>
+      <button class="chip-btn" type="button" data-cmd='tail -n 40 -f "$(ls -td ~/probebench/sessions/*/ | head -1)server.err"' title="Shows each Generate, Analyze and Load as it happens, with the Python it runs. Press Ctrl-C to stop.">Follow session log</button>
       <button class="chip-btn" type="button" data-cmd="condor_status -gpus -compact" title="Every GPU machine and whether it's busy">GPU machines</button>
       <span class="spacer"></span>
       <span class="hint" id="term-status"></span>

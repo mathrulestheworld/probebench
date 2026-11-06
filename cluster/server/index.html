@@ -338,6 +338,31 @@ dl.meta dd { margin: 0; }
 .plist .s .t { color: var(--muted); }
 .charts3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 18px; margin-top: 12px; }
 
+/* ---------- console */
+.console { position: fixed; left: 0; right: 0; bottom: 0; height: 40vh; z-index: 35; display: flex; flex-direction: column;
+  background: #0f1a24; color: #dfe6ee; border-top: 3px solid var(--gold); box-shadow: 0 -10px 30px rgba(16, 32, 48, .2); }
+.console[hidden] { display: none; }
+.console.tall { height: 75vh; }
+body.con-open main { padding-bottom: 44vh; }
+.con-bar { display: flex; align-items: center; gap: 14px; padding: 7px 16px; border-bottom: 1px solid #23364a; font-size: 13px; }
+.con-bar strong { color: #fff; }
+.con-hint { color: #93a4b5; }
+.con-bar .spacer { flex: 1; }
+.con-bar .linkish { color: #dfe6ee; }
+.con-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 16px 14px; font-family: var(--mono); font-size: 12.5px; line-height: 1.55; }
+.con-e { padding: 6px 0 8px; border-bottom: 1px solid #1d2e3f; }
+.con-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.con-time { color: #7f91a4; }
+.con-label { color: #fff; font-weight: 600; font-family: var(--sans); font-size: 13.5px; }
+.con-state { font-family: var(--sans); font-size: 12.5px; }
+.con-state.run { color: #f2c35b; } .con-state.ok { color: #6fd38c; } .con-state.bad { color: #ff8a80; }
+.con-copy { margin-left: auto; color: #9cc3ff; font-family: var(--sans); font-size: 12.5px; }
+.con-req { color: #9cc3ff; white-space: pre-wrap; word-break: break-all; }
+.con-code { margin: 2px 0 0; white-space: pre-wrap; word-break: break-word; color: #e8edf2; }
+.con-code .cm { color: #7f91a4; }
+.con-note { color: #b7c4d1; font-family: var(--sans); font-size: 12.5px; margin-top: 2px; }
+.con-empty { color: #93a4b5; font-family: var(--sans); padding: 8px 0; }
+
 @media (max-width: 960px) {
   .layout { grid-template-columns: 1fr; }
   aside.model { border-right: 0; border-bottom: 1px solid var(--rule); }
@@ -360,6 +385,7 @@ dl.meta dd { margin: 0; }
   <span class="node" id="gpu-node"></span>
   <span class="spacer"></span>
   <span class="idle" id="idle"></span>
+  <button class="btn quiet" id="con-btn" type="button" aria-expanded="false" aria-controls="console" title="What this page asks the GPU session to do, and the Python it runs">Console</button>
   <button class="btn danger" id="end-btn" type="button">End session</button>
 </header>
 <div class="banner" id="lost" role="alert">
@@ -698,6 +724,18 @@ dl.meta dd { margin: 0; }
     </section>
   </main>
 </div>
+<section class="console" id="console" aria-label="Console" hidden>
+  <div class="con-bar">
+    <strong>Console</strong>
+    <span class="con-hint">Each request this page sends to the GPU session, and the Python the session runs for it. The same lines go to the session's log on the cluster.</span>
+    <span class="spacer"></span>
+    <button class="linkish" id="con-copy" type="button">Copy all</button>
+    <button class="linkish" id="con-clear" type="button">Clear</button>
+    <button class="linkish" id="con-size" type="button">Taller</button>
+    <button class="linkish" id="con-close" type="button">Close</button>
+  </div>
+  <div class="con-body" id="con-body" role="log"></div>
+</section>
 <div class="tip" id="tip" role="tooltip"></div>
 
 <script>
@@ -755,13 +793,111 @@ let lost = false;
 async function api(path, body) {
   const opt = { credentials: "same-origin", headers: {} };
   if (body !== undefined) { opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const entry = conRequest(body !== undefined ? "POST" : "GET", path, body);
   let r;
-  try { r = await fetch(path, opt); } catch (e) { setLost(true); throw new Error("Lost contact with the session."); }
+  try { r = await fetch(path, opt); } catch (e) { setLost(true); conFinish(entry, "bad", "Lost contact with the session."); throw new Error("Lost contact with the session."); }
   setLost(false);
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`);
+  if (!r.ok) { conFinish(entry, "bad", j.error || `Request failed (${r.status})`); throw new Error(j.error || `Request failed (${r.status})`); }
+  if (path.startsWith("/api/task/")) conTask(j);
+  else if (entry) { if (j.task) { entry.task = j.task; CON.byTask.set(j.task, entry); conRender(entry); } else conFinish(entry, "ok", conSummary(path, j)); }
   return j;
 }
+
+// ------------------------------------------------------------------ console
+// Every request the page sends (except routine polling), with the Python the session runs for it.
+const CON = { entries: [], byTask: new Map(), seq: 0 };
+const CON_QUIET = /^\/api\/(task\/|status$|models$|keepalive$|render$|memory$|card|weights$)/;
+const CON_LABELS = { "/api/generate": "Generate", "/api/analyze": "Analyze", "/api/export": "Save activations", "/api/load": "Load model",
+  "/api/unload": "Unload model", "/api/download": "Download model", "/api/weights/stats": "Weight statistics",
+  "/api/weights/across": "Compare across layers", "/api/cancel": "Stop", "/api/shutdown": "End session",
+  "/api/memory/release": "Give back held memory", "/api/act/channel": "Load a channel", "/api/act/vector": "Load a token's vectors",
+  "/api/act/layer": "Load a layer slice" };
+function conRequest(method, path, body, code) {
+  const bare = path.split("?")[0];
+  if (CON_QUIET.test(bare)) return null;
+  const e = { id: ++CON.seq, at: new Date(), method, path, body, label: CON_LABELS[bare] || bare, state: "run", note: "Sent", code: code || null, task: null };
+  if (!e.code) e.code = conLocalCode(bare, path);
+  CON.entries.push(e);
+  if (CON.entries.length > 200) CON.entries.shift().node?.remove();
+  conRender(e);
+  return e;
+}
+function conLocalCode(bare, path) {   // requests that only slice the stored activations
+  const q = new URLSearchParams(path.split("?")[1] || "");
+  if (bare === "/api/act/channel") return `resid[:, :, ${q.get("c")}]   # channel ${q.get("c")} at every layer and token, from the last Analyze`;
+  if (bare === "/api/act/vector") return `resid[:, ${q.get("pos")}, :]   # every channel of token ${q.get("pos")} at every layer`;
+  if (bare === "/api/act/layer") return `resid[${q.get("layer")}]   # every channel of every token at ${q.get("layer") === "0" ? "the embeddings" : "layer " + q.get("layer")}`;
+  if (bare === "/api/memory/release") return "torch.cuda.empty_cache()";
+  if (bare === "/api/cancel") return "# stops the running task after its current step";
+  return null;
+}
+function conTask(t) {
+  const e = CON.byTask.get(t.id); if (!e) return;
+  if (t.code && !e.code) e.code = t.code;
+  if (t.status === "running") { e.note = t.progress || "Running"; conRender(e); return; }
+  const took = (Date.now() - e.at.getTime()) / 1000;
+  if (t.status === "done") conFinish(e, "ok", conSummary(e.path, t.result, took));
+  else if (t.status === "cancelled") conFinish(e, "bad", `Stopped after ${took.toFixed(1)} s.`);
+  else conFinish(e, "bad", t.error || "Failed.");
+  CON.byTask.delete(t.id);
+}
+function conFinish(e, state, note) { if (!e) return; e.state = state; e.note = note; conRender(e); }
+function conSummary(path, r, took) {
+  const t = took != null ? ` in ${took.toFixed(1)} s` : "";
+  if (!r) return "Done" + t + ".";
+  if (path === "/api/generate") return `${r.new_tokens} new tokens${t}, from ${r.prompt_tokens} prompt tokens.`;
+  if (path === "/api/analyze") return `${r.tokens.length} tokens, ${r.layers} layers, ${r.width} channels${t}.`;
+  if (path === "/api/load") return `Loaded ${r.id}${t}.`;
+  if (path === "/api/export") return `Saved ${r.path}${t}.`;
+  if (path === "/api/weights/stats") return `Shape [${r.shape.join(", ")}]${t}.`;
+  if (path === "/api/weights/across") return `${r.rows.length} layers${t}.`;
+  if (path.startsWith("/api/act/channel")) return `${r.values.length} layers × ${r.values[0].length} tokens.`;
+  return "Done" + t + ".";
+}
+function conCodeNode(code) {
+  const pre = el("pre", { class: "con-code" });
+  for (const line of code.split("\n")) {
+    const i = /^\s*#/.test(line) ? line.indexOf("#") : line.indexOf("  #");   // whole-line or trailing comments
+    if (i >= 0) pre.append(document.createTextNode(line.slice(0, i)), el("span", { class: "cm", text: line.slice(i) }));
+    else pre.append(document.createTextNode(line));
+    pre.append("\n");
+  }
+  return pre;
+}
+const conTime = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+function conText(e) {
+  return `[${conTime(e.at)}] ${e.label}: ${e.note}\n$ ${e.method} ${e.path}${e.body !== undefined ? " " + JSON.stringify(e.body) : ""}\n` + (e.code ? e.code + "\n" : "");
+}
+function conRender(e) {
+  const body = $("con-body");
+  if (!body.querySelector(".con-e")) body.replaceChildren();
+  const stick = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+  const state = { run: "running", ok: "done", bad: "failed" }[e.state];
+  const node = el("div", { class: "con-e" },
+    el("div", { class: "con-head" }, el("span", { class: "con-time", text: conTime(e.at) }), el("span", { class: "con-label", text: e.label }),
+      el("span", { class: "con-state " + e.state, text: state }),
+      el("button", { class: "linkish con-copy", type: "button", text: e.code ? "Copy code" : "Copy",
+                     onclick: () => navigator.clipboard.writeText(e.code || conText(e)).catch(() => {}) })),
+    el("div", { class: "con-req", text: `$ ${e.method} ${e.path}${e.body !== undefined ? " " + JSON.stringify(e.body) : ""}` }),
+    e.code ? conCodeNode(e.code) : null,
+    el("div", { class: "con-note", text: e.note }));
+  if (e.node) e.node.replaceWith(node); else body.append(node);
+  e.node = node;
+  if (stick) body.scrollTop = body.scrollHeight;
+}
+function setConsole(open) {
+  $("console").hidden = !open; document.body.classList.toggle("con-open", open); $("con-btn").setAttribute("aria-expanded", String(open));
+  if (open) { if (!CON.entries.length) $("con-body").replaceChildren(el("p", { class: "con-empty", text: "Nothing yet. Load a model, generate or analyze, and each step shows up here." })); $("con-body").scrollTop = $("con-body").scrollHeight; }
+}
+$("con-btn").addEventListener("click", () => setConsole($("console").hidden));
+$("con-close").addEventListener("click", () => setConsole(false));
+$("con-size").addEventListener("click", () => { const t = $("console").classList.toggle("tall"); $("con-size").textContent = t ? "Shorter" : "Taller"; });
+$("con-clear").addEventListener("click", () => { CON.entries = []; CON.byTask.clear(); setConsole(true); });
+$("con-copy").addEventListener("click", async (ev) => {
+  try { await navigator.clipboard.writeText(CON.entries.map(conText).join("\n")); ev.target.textContent = "Copied"; setTimeout(() => (ev.target.textContent = "Copy all"), 1500); }
+  catch (err) { /* blocked */ }
+});
 async function runTask(path, body, onTick) {
   const { task } = await api(path, body);
   for (;;) {
@@ -1495,9 +1631,11 @@ function drawHeat() {
 
 // ---- every channel: one token at every layer (layers by channels), or one layer for every token (tokens by channels)
 async function fetchSlice(url) {
+  const entry = conRequest("GET", url);
   const resp = await fetch(url, { credentials: "same-origin" });
-  if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || `Request failed (${resp.status})`); }
+  if (!resp.ok) { const j = await resp.json().catch(() => ({})); conFinish(entry, "bad", j.error || `Request failed (${resp.status})`); throw new Error(j.error || `Request failed (${resp.status})`); }
   const [rows, width] = resp.headers.get("X-Shape").split(",").map(Number);
+  conFinish(entry, "ok", `${rows} × ${width} values (${(rows * width * 4 / 2 ** 20).toFixed(1)} MB).`);
   return { rows, width, data: new Float32Array(await resp.arrayBuffer()) };
 }
 async function loadVector() {

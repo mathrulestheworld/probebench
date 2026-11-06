@@ -255,7 +255,7 @@ class Lab:
         tid = secrets.token_hex(6)
         task = {"id": tid, "kind": kind, "status": "running", "progress": "Starting", "partial": "",
                 "result": None, "error": None, "started": time.time(), "finished": None,
-                "cancel": False, "fraction": None}
+                "cancel": False, "fraction": None, "code": None}
         with self.tasks_lock:
             self.tasks[tid] = task
             if len(self.tasks) > 60:  # keep the newest
@@ -292,6 +292,8 @@ class Lab:
                 task["finished"] = time.time()
                 task["progress"] = ""
                 self.touch()
+                took = task["finished"] - task["started"]
+                log(f"{kind}: {task['status']} in {took:.1f} s" + (f" ({task['error']})" if task["error"] else ""))
 
         threading.Thread(target=run, daemon=True).start()
         return tid
@@ -312,7 +314,7 @@ class Lab:
         t = self.tasks.get(tid)
         if t is None:
             raise UserError("That task is no longer available.")
-        return {k: t[k] for k in ("id", "kind", "status", "progress", "partial", "result", "error", "fraction")}
+        return {k: t[k] for k in ("id", "kind", "status", "progress", "partial", "result", "error", "fraction", "code")}
 
     # ---- status
     def gpu_info(self):
@@ -376,6 +378,9 @@ class Lab:
     # ---- download (no GPU needed)
     def do_download(self, task, repo_id, token):
         task["progress"] = "Looking up the model on Hugging Face"
+        self.show_code(task, "download", "\n".join([
+            "from huggingface_hub import snapshot_download",
+            f"snapshot_download({repo_id!r}, allow_patterns={dl.PATTERNS!r})   # into $HF_HOME = {dl.hf_home()}"]))
 
         def progress(done_b, total_b):
             task["fraction"] = done_b / total_b if total_b else None
@@ -406,6 +411,12 @@ class Lab:
         if not is_path and not re.match(dl.REPO_RE, ref):
             raise UserError("Pick a downloaded model, or give the full path of a model folder on the cluster.")
         task["progress"] = "Unloading the previous model" if self.model is not None else "Reading the tokenizer"
+        self.show_code(task, "load", "\n".join([
+            "import torch",
+            "from transformers import AutoModelForCausalLM, AutoTokenizer",
+            f"tok = AutoTokenizer.from_pretrained({ref!r})",
+            f"model = AutoModelForCausalLM.from_pretrained({ref!r}, dtype=torch.bfloat16, device_map={self.device!r})",
+            "model.eval()"]))
         self.unload_locked()
         t0 = time.time()
         folder = ref
@@ -543,6 +554,46 @@ class Lab:
             self.tokstr_cache[i] = s
         return s
 
+    # ---- the code behind each action, shown in the page's console and in the session log
+    def show_code(self, task, title, code):
+        task["code"] = code
+        log(f"{title}:\n" + "\n".join("    " + line for line in code.splitlines()))
+
+    def code_encode(self, p):
+        prompt, chat = str(p.get("prompt", "")), bool(p.get("chat"))
+        q = lambda x: json.dumps(x, ensure_ascii=False)  # noqa: E731  (a Python string literal)
+        lines = [f"prompt = {q(prompt[:4000])}" + ("  # cut to 4,000 characters here" if len(prompt) > 4000 else "")]
+        if chat:
+            msgs = ([f'{{"role": "system", "content": {q(p.get("system", ""))}}}'] if str(p.get("system", "")).strip() else [])
+            msgs.append('{"role": "user", "content": prompt}')
+            lines.append("messages = [" + ", ".join(msgs) + "]")
+            lines.append("text = tok.apply_chat_template(messages, add_generation_prompt=True, tokenize=False, "
+                         f"enable_thinking={bool(p.get('thinking'))})")
+            lines.append('enc = tok(text, add_special_tokens=False, return_tensors="pt").to(model.device)')
+        else:
+            lines.append('enc = tok(prompt, return_tensors="pt").to(model.device)')
+        if self.tok is not None and self.tok.bos_token_id is not None:
+            lines.append(f"# Probe Bench also puts {self.tok.bos_token} first if the tokenizer didn't (Gemma needs it)")
+        return lines
+
+    def code_capture(self):
+        st = self.structure
+        lp = st["layers_path"]
+        return [
+            f"layers = model.get_submodule({lp!r})",
+            "resid = [None] * (len(layers) + 1)                # row 0: the input to layer 0 (the embeddings)",
+            "def grab(i):",
+            "    def hook(mod, args, out): resid[i + 1] = (out[0] if isinstance(out, tuple) else out).detach()",
+            "    return hook",
+            "hooks = [layers[0].register_forward_pre_hook(",
+            "    lambda mod, args, kw: resid.__setitem__(0, (args[0] if args else kw['hidden_states']).detach()), with_kwargs=True)]",
+            "hooks += [layer.register_forward_hook(grab(i)) for i, layer in enumerate(layers)]",
+            "with torch.no_grad():",
+            "    out = model(**enc, use_cache=False)",
+            "for h in hooks: h.remove()",
+            "resid = torch.stack([r[0] for r in resid])        # [layers + 1, tokens, width]",
+        ]
+
     # ---- generation
     def do_generate(self, task, p):
         from transformers import StoppingCriteria, StoppingCriteriaList, TextIteratorStreamer
@@ -562,6 +613,12 @@ class Lab:
                 return torch.full((input_ids.shape[0],), bool(task["cancel"]), dtype=torch.bool,
                                   device=input_ids.device)
 
+        sampling = (f"do_sample=True, temperature={temperature:g}, top_p={float(p.get('top_p', 0.95) or 0.95):g}"
+                    if temperature > 0 else "do_sample=False")
+        self.show_code(task, "generate", "\n".join(self.code_encode(p) + [
+            f"out = model.generate(**enc, max_new_tokens={max_new}, {sampling})",
+            'reply = tok.decode(out[0, enc["input_ids"].shape[1]:], skip_special_tokens=True)',
+            f"# {int(enc['input_ids'].shape[1])} prompt tokens on {self.device}"]))
         kwargs = dict(**enc, max_new_tokens=max_new, streamer=streamer,
                       stopping_criteria=StoppingCriteriaList([StopFlag()]),
                       pad_token_id=self.tok.pad_token_id if self.tok.pad_token_id is not None else self.tok.eos_token_id)
@@ -899,6 +956,18 @@ class Lab:
 
     def do_analyze(self, task, p):
         enc, truncated, n_total = self.analyze_inputs(p)
+        st = self.structure
+        lens = [f"norm, head = model.get_submodule({st['norm_path']!r}), model.get_output_embeddings()" if st["norm_path"]
+                else "norm, head = (lambda x: x), model.get_output_embeddings()",
+                "logits = head(norm(resid)).float()                # the logit lens: every layer read as if it were the last"]
+        if st["softcap"]:
+            lens.append(f"logits = torch.tanh(logits / {st['softcap']:g}) * {st['softcap']:g}   # this model's final logit softcap")
+        self.show_code(task, "analyze", "\n".join(self.code_encode(p) + (
+            [f'enc = {{k: v[:, :{MAX_ANALYZE_TOKENS}] for k, v in enc.items()}}   # first {MAX_ANALYZE_TOKENS} tokens'] if truncated else [])
+            + self.code_capture() + [
+            "state_size = resid.float().norm(dim=-1)            # the State size map: [layers + 1, tokens]",
+            "# resid[:, :, c] is the One channel map; resid[:, t] is one token at every layer; resid[l] is one layer for every token"] + lens + [
+            "top5 = logits.softmax(-1).topk(5)                  # the prediction table and the Top prediction map"]))
         task["progress"] = "Running the prompt through the model"
         resid, logits = self.capture(enc)
         ids = enc["input_ids"][0].tolist()
@@ -975,6 +1044,8 @@ class Lab:
 
     def do_export(self, task, p):
         enc, truncated, _ = self.analyze_inputs(p)
+        self.show_code(task, "save activations", "\n".join(self.code_encode(p) + self.code_capture() + [
+            "torch.save({'residual_stream': resid.to(torch.bfloat16).cpu(), 'tokens': ...}, path)   # in ~/probebench/exports"]))
         task["progress"] = "Running the prompt through the model"
         resid, _ = self.capture(enc)
         stack = torch.stack([h[0] for h in resid]).to(torch.bfloat16).cpu()
@@ -995,6 +1066,12 @@ class Lab:
     # ---- weights
     def do_weight_stats(self, task, name):
         self.require_model()
+        self.show_code(task, "weight statistics", "\n".join([
+            f"w = model.get_parameter({name!r}).float()",
+            "w.mean(), w.std(), w.min(), w.max(), w.norm()      # the numbers at the top",
+            "torch.histc(w, bins=60)                            # the histogram (from a 4M-value sample for big matrices)",
+            "s = torch.linalg.svdvals(w)                        # singular values (Probe Bench uses the Gram matrix, same result)",
+            "stable_rank = (s ** 2).sum() / s[0] ** 2"]))
         params = dict(self.model.named_parameters())
         if name not in params:
             raise UserError(f"There's no parameter called {name}.")
@@ -1059,6 +1136,12 @@ class Lab:
     def do_weight_across(self, task, rel):
         """Size and spectrum summaries of the same matrix in every layer."""
         self.require_model()
+        self.show_code(task, "across layers", "\n".join([
+            f"for i in range({self.structure['n_layers']}):",
+            f"    w = model.get_parameter(f'{self.structure['layers_path']}.{{i}}.{rel}').float()",
+            "    fro = w.norm()",
+            "    sigma = torch.linalg.matrix_norm(w, ord=2)    # Probe Bench estimates this with 40 steps of power iteration",
+            "    stable_rank = fro ** 2 / sigma ** 2"]))
         params = dict(self.model.named_parameters())
         lp = self.structure["layers_path"]
         n = self.structure["n_layers"]
