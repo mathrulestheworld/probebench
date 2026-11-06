@@ -57,6 +57,56 @@ ACCOUNT_FORM = "https://webforms.isye.gatech.edu/other-forms/isye-unix-account-r
 ROUTINE = {"build-progress", "container-status", "download-progress", "job-state", "queue-info", "session-state",
            "summary", "token", "why", "check-port", "log", "job-log", "list", "status", "models", "evictions"}
 VENDOR = {"xterm.js": "application/javascript", "addon-fit.js": "application/javascript", "xterm.css": "text/css"}
+# What each cluster command is for, in plain words, for the page's command list
+LABCTL_WHAT = {
+    "container-status": "Check whether the software container is ready",
+    "link-existing": "Reuse the container you built by hand in ~/probe",
+    "build": "Submit the job that builds and unpacks the container (condor_submit)",
+    "download": "Submit a job that downloads a model (condor_submit)",
+    "download-progress": "Read a download job's progress from its output",
+    "job-state": "Check a job's state (condor_q, then condor_history)",
+    "evictions": "Count how often a job was stopped as it started (from its event log)",
+    "build-progress": "Read how far the container build has got (from its output)",
+    "queue-info": "Count the GPU jobs waiting and running (condor_q -allusers)",
+    "job-log": "Read the end of a job's output",
+    "new-session": "Submit a GPU session job (condor_submit)",
+    "session-state": "Check whether the session's job has started and its server is up (condor_q)",
+    "why": "Ask HTCondor why the session is waiting (condor_q -better-analyze)",
+    "token": "Read the session's access key",
+    "check-port": "Test whether compute01 can reach the session's server",
+    "stop": "End a session's job (condor_rm)",
+    "stop-job": "Remove a job (condor_rm)",
+    "stop-all": "End all Probe Bench sessions (condor_rm)",
+    "list": "List running and waiting sessions (condor_q)",
+    "log": "Read a session's server log",
+    "models": "List the downloaded models",
+    "save-token": "Save your Hugging Face token on the cluster",
+    "summary": "Read the overall state: container, models, sessions and token",
+    "status": "Read the overall state",
+}
+
+
+def describe(host, cmd):
+    if cmd.startswith(LABCTL + " "):
+        words = cmd.split()
+        return LABCTL_WHAT.get(words[2] if len(words) > 2 else "", "Run Probe Bench's cluster helper")
+    if cmd.startswith("condor_status"):
+        return "Count the free GPUs of each kind (condor_status)"
+    if "tar -C" in cmd:
+        return "Copy Probe Bench's cluster scripts to ~/probebench/app"
+    if cmd.startswith("cd -- "):
+        return "List a folder (Files tab)"
+    if cmd.startswith("f="):
+        return "Read a file (Files tab)"
+    if cmd.startswith("cat -- "):
+        return "Send a file to your browser (Files tab)"
+    if "authorized_keys" in cmd:
+        return "Add this Mac's SSH key to your cluster account"
+    if cmd == "true":
+        return "Check that the connection works"
+    return "Run a command on the cluster"
+
+
 IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
 
 
@@ -399,7 +449,7 @@ class App:
         return marker.exists()
 
     # ---- ssh
-    def record(self, host, cmd, rc=None, out="", secs=None, running=False, routine=None):
+    def record(self, host, cmd, rc=None, out="", secs=None, running=False, routine=None, what=None):
         words = cmd.split()
         sub = words[2] if cmd.startswith(LABCTL + " ") and len(words) > 2 else ""
         if routine is None:
@@ -407,6 +457,7 @@ class App:
         with self.lock:
             self.cmd_seq += 1
             entry = {"id": self.cmd_seq, "at": now(), "cmd": f"ssh {host} {shlex.quote(cmd)}" if cmd else f"ssh {host}",
+                     "host": host, "remote": cmd, "what": what or describe(host, cmd),
                      "rc": rc, "secs": secs, "out": out[-8000:], "routine": routine, "running": running}
             self.cmds.append(entry)
         return entry
@@ -977,7 +1028,9 @@ class App:
                     f"condor_ssh_to_job -ssh 'ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:{rport}:127.0.0.1:{sess.port}' {sess.jid}"]
         sess.tunnel = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
         self.record(SUBMIT, " ".join(shlex.quote(a) for a in args[args.index(SUBMIT) + 1:]),
-                    out=f"Tunnel for session {sess.sid}: " + " ".join(shlex.quote(a) for a in args), running=True)
+                    out=f"Tunnel for session {sess.sid}: " + " ".join(shlex.quote(a) for a in args), running=True,
+                    what=f"Open a tunnel from this Mac to the session's server on {sess.host}" + (
+                        "" if sess.mode == "direct" else " (through condor_ssh_to_job)"))
 
     def tunnel_ok(self, sess, tries=25):
         for _ in range(tries):

@@ -187,7 +187,10 @@ body.drawer-open main { padding-bottom: 50vh; }
 .cmds .t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .cmds .st { font-size: 12.5px; font-weight: 600; }
 .cmds .st.ok { color: var(--good-text); } .cmds .st.bad { color: var(--critical); } .cmds .st.run { color: var(--warn-text); }
-.cmds .c { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmds .w { min-width: 0; }
+.cmds .what { display: block; }
+.cmds .c { display: block; font-family: var(--mono); font-size: 12px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmds .c .via { color: var(--muted); }
 .cmds .body { padding: 2px 4px 10px 118px; }
 .cmds pre { margin: 6px 0 0; background: #f7f9fb; border: 1px solid var(--rule-soft); border-radius: 4px; padding: 8px 10px; font-size: 12px;
   max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
@@ -490,7 +493,7 @@ body.drawer-open main { padding-bottom: 50vh; }
   </div>
   <div class="drawer-pane" id="dp-cmds" role="tabpanel" aria-labelledby="dt-cmds" hidden>
     <div class="row">
-      <p class="hint">Every command Probe Bench has sent to the cluster since it started, newest first. Click one to see what it printed.</p>
+      <p class="hint">Every command Probe Bench has sent to the cluster since it started, newest first. Each one goes through <code>ssh probebench-submit</code>, which runs it on compute01. Click one to see what it printed.</p>
       <span class="spacer"></span>
       <label class="check"><input type="checkbox" id="cmd-routine"> Show routine checks</label>
       <button class="btn small quiet" id="cmd-copy" type="button">Copy the last 20</button>
@@ -761,8 +764,10 @@ function renderCmds() {
   for (const c of list) {
     const [label, cls] = cmdStatus(c);
     const d = el("details", { "data-id": String(c.id) },
-      el("summary", {}, el("span", { class: "t", text: hhmmss(c.at) }), el("span", { class: "st " + cls, text: label }), el("span", { class: "c", text: c.cmd })),
-      el("div", { class: "body" }, el("p", { class: "full", text: c.cmd }),
+      el("summary", {}, el("span", { class: "t", text: hhmmss(c.at) }), el("span", { class: "st " + cls, text: label }),
+        el("span", { class: "w" }, el("span", { class: "what", text: c.what || "" }),
+          el("span", { class: "c" }, el("span", { class: "via", text: `ssh ${c.host || "probebench-submit"} ` }), document.createTextNode(c.remote ?? c.cmd)))),
+      el("div", { class: "body" }, el("p", { class: "hint", text: "The full command, as you'd type it in Terminal on your Mac:" }), el("p", { class: "full", text: c.cmd }),
         el("p", { class: "hint", text: c.secs != null ? `Took ${c.secs < 1 ? "under a second" : dur(c.secs)}.` : "" }),
         el("pre", { text: c.out || "(no output)" }),
         el("button", { class: "linkish", type: "button", text: "Copy", onclick: () => navigator.clipboard.writeText(cmdText(c)).catch(() => {}) })));
@@ -770,7 +775,7 @@ function renderCmds() {
     ol.append(el("li", {}, d));
   }
 }
-const cmdText = (c) => `[${hhmmss(c.at)}] $ ${c.cmd}\n(${cmdStatus(c)[0]}${c.secs != null ? ", " + c.secs.toFixed(1) + " s" : ""})\n${(c.out || "").trimEnd()}\n`;
+const cmdText = (c) => `[${hhmmss(c.at)}] ${c.what ? c.what + "\n" : ""}$ ${c.cmd}\n(${cmdStatus(c)[0]}${c.secs != null ? ", " + c.secs.toFixed(1) + " s" : ""})\n${(c.out || "").trimEnd()}\n`;
 $("cmd-routine").addEventListener("change", renderCmds);
 $("cmd-copy").addEventListener("click", async (e) => {
   const text = shownCmds().slice(0, 20).reverse().map(cmdText).join("\n");
