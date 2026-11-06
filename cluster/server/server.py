@@ -38,8 +38,8 @@ sys.path.insert(0, str(HERE))
 import download as dl  # noqa: E402
 
 GiB = 2 ** 30
-MAX_ANALYZE_TOKENS = 256
-LENS_TOP_K = 5
+MAX_ANALYZE_TOKENS = 512
+TOP_K = 5
 
 SUGGESTED = [
     {"id": "google/gemma-4-12B-it", "size_gb": 22.3, "note": "Gemma 4 12B, instruction-tuned"},
@@ -216,6 +216,7 @@ class Lab:
         self.folder = None
         self.weights_bytes = 0
         self.last = None          # the last analysis: residual stream kept on the CPU for channel views
+        self.last_seq = None      # the last generation's tokens (prompt + reply), so Activations can analyze them
         self.last_gen = None      # memory facts from the last generation
         self.readme = None
 
@@ -398,7 +399,7 @@ class Lab:
         self.special_ids = set()
         self.folder = None
         self.weights_bytes = 0
-        self.last = self.last_gen = self.readme = None
+        self.last = self.last_gen = self.readme = self.last_seq = None
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -525,24 +526,43 @@ class Lab:
         if self.model is None or self.tok is None:
             return {"segments": [], "count": 0, "special": 0, "cut": False,
                     "unavailable": "Load a model to see exactly what it receives."}
-        enc = self.encode(str(p.get("prompt", "")), bool(p.get("chat")), str(p.get("system", "")),
-                          bool(p.get("thinking")), to_device=False)
-        ids = enc["input_ids"][0].tolist()
+        gen = self.generation(p)
+        if gen:
+            ids, n_prompt = gen["ids"], gen["n_prompt"]
+        else:
+            enc = self.encode(str(p.get("prompt", "")), bool(p.get("chat")), str(p.get("system", "")),
+                              bool(p.get("thinking")), to_device=False)
+            ids, n_prompt = enc["input_ids"][0].tolist(), None
         shown, segs, buf = ids[:8192], [], []
+        state = {"reply": False}
 
         def flush():
             if buf:
-                segs.append({"t": self.tok.decode(buf, skip_special_tokens=False), "s": False})
+                segs.append({"t": self.tok.decode(buf, skip_special_tokens=False), "s": False, "r": state["reply"]})
                 buf.clear()
-        for i in shown:
+        for k, i in enumerate(shown):
+            if n_prompt is not None and k == n_prompt:
+                flush()
+                state["reply"] = True
             if i in self.special_ids:
                 flush()
-                segs.append({"t": str(self.tok.convert_ids_to_tokens(i)), "s": True})
+                segs.append({"t": str(self.tok.convert_ids_to_tokens(i)), "s": True, "r": state["reply"]})
             else:
                 buf.append(i)
         flush()
         return {"segments": segs, "count": len(ids), "cut": len(ids) > len(shown),
-                "special": sum(1 for i in ids if i in self.special_ids)}
+                "special": sum(1 for i in ids if i in self.special_ids),
+                "reply_tokens": (len(ids) - n_prompt) if n_prompt is not None else None}
+
+    def generation(self, p):
+        """The stored prompt + reply of the last generation, when the page asks to analyze it."""
+        gid = p.get("from_generation")
+        if not gid:
+            return None
+        if not self.last_seq or self.last_seq["gen_id"] != gid:
+            raise UserError("That reply is from an earlier generation or model. Generate again, or turn off "
+                            "Include the model's last reply.")
+        return self.last_seq
 
     def tokstr(self, i):
         s = self.tokstr_cache.get(i)
@@ -659,9 +679,13 @@ class Lab:
         self.last_gen = {"prompt_tokens": n_prompt, "new_tokens": n_new, "at": time.time(),
                          "peak_extra_gb": (torch.cuda.max_memory_allocated() - base) / GiB if cuda else None,
                          "kv": box.get("kv")}
+        gen_id = None
+        if "seq" in box and n_new > 0:
+            gen_id = secrets.token_hex(4)
+            self.last_seq = {"gen_id": gen_id, "ids": box["seq"][0].tolist(), "n_prompt": n_prompt}
         box.clear()
         gc.collect()
-        return {"text": task["partial"], "new_tokens": n_new, "prompt_tokens": n_prompt,
+        return {"text": task["partial"], "new_tokens": n_new, "prompt_tokens": n_prompt, "gen_id": gen_id,
                 "seconds": seconds, "tokens_per_s": n_new / seconds if seconds > 0 else None,
                 "stopped": bool(task["cancel"]), "model": self.model_id}
 
@@ -937,17 +961,14 @@ class Lab:
             raise UserError("Couldn't capture every layer's activations for this architecture.")
         return resid, out.logits
 
-    def lens_logits(self, h):
-        st = self.structure
-        x = st["norm"](h) if st["norm"] is not None else h
-        logits = st["head"](x).float()
-        if st["softcap"]:
-            logits = torch.tanh(logits / st["softcap"]) * st["softcap"]
-        return logits
-
     def analyze_inputs(self, p):
         self.require_model()
-        enc = self.encode(p.get("prompt", ""), bool(p.get("chat")), p.get("system", ""), bool(p.get("thinking")))
+        gen = self.generation(p)
+        if gen:
+            ids = torch.tensor([gen["ids"]], device=self.model.device)
+            enc = {"input_ids": ids, "attention_mask": torch.ones_like(ids)}
+        else:
+            enc = self.encode(p.get("prompt", ""), bool(p.get("chat")), p.get("system", ""), bool(p.get("thinking")))
         n = enc["input_ids"].shape[1]
         truncated = n > MAX_ANALYZE_TOKENS
         if truncated:
@@ -956,39 +977,44 @@ class Lab:
 
     def do_analyze(self, task, p):
         enc, truncated, n_total = self.analyze_inputs(p)
-        st = self.structure
-        lens = [f"norm, head = model.get_submodule({st['norm_path']!r}), model.get_output_embeddings()" if st["norm_path"]
-                else "norm, head = (lambda x: x), model.get_output_embeddings()",
-                "logits = head(norm(resid)).float()                # the logit lens: every layer read as if it were the last"]
-        if st["softcap"]:
-            lens.append(f"logits = torch.tanh(logits / {st['softcap']:g}) * {st['softcap']:g}   # this model's final logit softcap")
-        self.show_code(task, "analyze", "\n".join(self.code_encode(p) + (
+        gen = self.generation(p)
+        src = (["ids = last_generation_ids                     # the prompt and the model's reply, token for token",
+                "enc = {'input_ids': ids, 'attention_mask': torch.ones_like(ids)}"] if gen else self.code_encode(p))
+        self.show_code(task, "analyze", "\n".join(src + (
             [f'enc = {{k: v[:, :{MAX_ANALYZE_TOKENS}] for k, v in enc.items()}}   # first {MAX_ANALYZE_TOKENS} tokens'] if truncated else [])
             + self.code_capture() + [
-            "state_size = resid.float().norm(dim=-1)            # the State size map: [layers + 1, tokens]",
-            "# resid[:, :, c] is the One channel map; resid[:, t] is one token at every layer; resid[l] is one layer for every token"] + lens + [
-            "top5 = logits.softmax(-1).topk(5)                  # the prediction table and the Top prediction map"]))
-        task["progress"] = "Running the prompt through the model"
+            "# resid[l] is one layer for every token; resid[:, :, c] one channel; resid[:, t] one token at every layer",
+            "probs = out.logits[0].float().softmax(-1)          # what the model predicted after each token",
+            "top5 = probs.topk(5)",
+            "next_p = probs[:-1].gather(1, ids[0, 1:, None])    # the probability of the token that actually came next"]))
+        task["progress"] = "Running the text through the model"
+        task["fraction"] = 0.1
         resid, logits = self.capture(enc)
         ids = enc["input_ids"][0].tolist()
-        task["progress"] = "Computing the layer-by-layer predictions"
-        norms, lens_ids, lens_p = [], [], []
+        T = len(ids)
+        task["progress"] = "Reading the model's predictions at each token"
+        task["fraction"] = 0.7
+        top_ids, top_p, next_p, next_rank = [], [], [], []
         used = set(ids)
         with torch.no_grad():
-            for li, h in enumerate(resid):
-                task["fraction"] = li / len(resid)
-                task["progress"] = f"Computing the layer-by-layer predictions: layer {li} of {len(resid) - 1}"
-                x = h[0]
-                norms.append([round(v, 3) for v in x.float().norm(dim=-1).tolist()])
-                probs = torch.softmax(self.lens_logits(x), dim=-1)
-                pv, pi = probs.topk(LENS_TOP_K, dim=-1)
-                lens_ids.append(pi.tolist())
-                lens_p.append([[round(v, 4) for v in row] for row in pv.tolist()])
-                for row in lens_ids[-1]:
-                    used.update(row)
-            final_top = torch.softmax(logits[0].float(), -1).argmax(-1).tolist()
-        matches = lens_ids[-1] and [row[0] for row in lens_ids[-1]] == final_top
+            lg = logits[0]
+            nxt = enc["input_ids"][0]
+            for a in range(0, T, 64):                       # in chunks, so a big vocabulary doesn't need much memory
+                probs = torch.softmax(lg[a:a + 64].float(), dim=-1)
+                pv, pi = probs.topk(TOP_K, dim=-1)
+                top_ids += pi.tolist()
+                top_p += [[round(v, 5) for v in row] for row in pv.tolist()]
+                for k in range(probs.shape[0]):
+                    pos = a + k
+                    if pos + 1 < T:
+                        q = probs[k, nxt[pos + 1]]
+                        next_p.append(round(q.item(), 6))
+                        next_rank.append(int((probs[k] > q).sum().item()) + 1)
+            for row in top_ids:
+                used.update(row)
+        del logits
         task["progress"] = "Finding the largest channels"
+        task["fraction"] = 0.9
         stack = torch.stack([h[0] for h in resid]).cpu().float()      # [layers + 1, tokens, width]
         del resid
         aid = secrets.token_hex(4)
@@ -1010,12 +1036,14 @@ class Lab:
             return out
         top_any = top(stack, 0)
         top_skip = top(stack[:, 1:, :], 1) if T >= 3 else top_any
+        n_prompt = gen["n_prompt"] if gen else None
         return {"model": self.model_id, "aid": aid, "width": width, "top_channels": top_any,
                 "top_channels_skip": top_skip, "ids": ids, "tokens": [self.tokstr(i) for i in ids],
                 "vocab": {str(i): self.tokstr(i) for i in used}, "layers": stack.shape[0] - 1,
-                "norms": norms, "lens_ids": lens_ids, "lens_p": lens_p, "truncated": truncated,
-                "total_tokens": n_total, "max_tokens": MAX_ANALYZE_TOKENS, "lens_matches_output": bool(matches),
-                "chat": bool(p.get("chat"))}
+                "n_prompt": n_prompt if n_prompt is not None and n_prompt < T else None,
+                "predictions": {"top_ids": top_ids, "top_p": top_p, "next_p": next_p, "next_rank": next_rank},
+                "truncated": truncated, "total_tokens": n_total, "max_tokens": MAX_ANALYZE_TOKENS,
+                "chat": bool(p.get("chat")), "from_generation": bool(gen)}
 
     def last_analysis(self, aid):
         if not self.last or self.last["aid"] != aid:

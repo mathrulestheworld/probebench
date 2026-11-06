@@ -163,16 +163,20 @@ main { padding: 0 26px 48px; min-width: 0; }
 .history .o { color: var(--ink-2); font-size: 13px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- activations */
+.prompt-head { margin-bottom: 6px; }
+.prompt-head .sub-label { margin: 0 !important; }
+.from-gen { margin: 8px 0 2px; padding: 8px 12px; background: #eef4fb; border-radius: 6px; display: flex; gap: 6px 12px; flex-wrap: wrap; align-items: center; }
 .tokens { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 16px; max-height: 132px; overflow-y: auto; padding: 2px; }
 .tok {
   font-family: var(--mono); font-size: 12.5px; padding: 2px 6px; border-radius: 3px; border: 1px solid var(--rule);
   background: #fff; cursor: pointer; white-space: pre; border-bottom-width: 3px; border-bottom-color: transparent;
 }
+.tok.reply { border-bottom-color: #9ec5f4; }
 .tok .ws { color: var(--muted); }
 .tok[aria-pressed=true] { background: var(--gold-wash); border-color: var(--gold); border-bottom-color: var(--gold); }
+.exact-text .rp { background: #e3eefb; border-radius: 2px; }
 .act-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
 h3.sub { font-size: 15px; margin: 18px 0 2px; color: var(--ink); }
-.map-controls { display: flex; gap: 10px 24px; flex-wrap: wrap; align-items: center; margin: 4px 0 14px; }
 .seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
 .seg label { cursor: pointer; }
 .seg input { position: absolute; opacity: 0; pointer-events: none; }
@@ -180,30 +184,62 @@ h3.sub { font-size: 15px; margin: 18px 0 2px; color: var(--ink); }
 .seg label + label span { border-left: 1px solid var(--rule); }
 .seg input:checked + span { background: var(--navy); color: #fff; }
 .seg input:focus-visible + span { outline: 2px solid var(--navy); outline-offset: -3px; }
+.seg.small span { padding: 3px 10px; font-size: 12.5px; }
 .chart-title { font-weight: 600; color: var(--ink); margin-bottom: 2px; }
-.chart-sub { color: var(--ink-2); font-size: 13px; margin-bottom: 10px; max-width: 80ch; }
-.scale-row { display: flex; gap: 6px 18px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--ink-2); }
-.map-scroll { overflow: auto; max-height: 62vh; border: 1px solid var(--rule-soft); border-radius: 4px; background: #fff; }
+.chart-sub { color: var(--ink-2); font-size: 13px; margin-bottom: 10px; max-width: 86ch; }
+.slice-bar { display: flex; gap: 10px 20px; flex-wrap: wrap; align-items: center; margin: 4px 0 10px; }
+.picker { display: inline-flex; align-items: center; gap: 8px; }
+.picker input[type=range] { width: 260px; accent-color: var(--navy); }
+.pick-label { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 10ch; }
+.chips-row { display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; margin: 0 0 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { border: 1px solid var(--rule); background: #fff; border-radius: 12px; padding: 1px 9px; font-size: 12.5px; cursor: pointer; font-variant-numeric: tabular-nums; }
+.chip small { color: var(--ink-2); margin-left: 4px; }
+.chip:hover { border-color: var(--navy); }
+.chip[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
+.chip[aria-pressed=true] small { color: #d6e2ee; }
+.view-bar { display: flex; gap: 8px 22px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; font-size: 13px; color: var(--ink-2); padding-top: 10px; border-top: 1px solid var(--rule-soft); }
+.ctl { display: inline-flex; align-items: center; gap: 8px; }
+.map-scroll { overflow: auto; max-height: 64vh; border: 1px solid var(--rule-soft); border-radius: 4px; background: #fff; }
 .map-row { display: flex; width: max-content; }
 .map-row svg.axis { position: sticky; left: 0; z-index: 2; background: #fff; flex: none; }
+.slice-plot { position: relative; flex: none; }
+.slice-canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; }
+.mark-col { position: absolute; width: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
+.mark-row { position: absolute; left: 0; height: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
 .heat-legend-row { margin-top: 10px; display: flex; gap: 18px; flex-wrap: wrap; align-items: center; }
 .legend { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
 .legend .ramp { width: 140px; height: 8px; border-radius: 2px; }
 svg text { font-family: var(--sans); }
-.heat rect.cell:hover, .grid rect.cell:hover { stroke: var(--ink); stroke-width: 1; }
-.lens { width: 100%; border-collapse: collapse; font-size: 13px; }
-.lens th { text-align: left; color: var(--ink-2); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: #fff; z-index: 1; }
-.lens td { padding: 5px 8px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; min-width: 110px; }
-.lens td.layer { color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 0; position: sticky; left: 0; background: #fff; }
-.lens tr.focus td { background: var(--gold-wash); }
-.lens tr.out td { border-bottom: 2px solid var(--rule); }
-.lens tr.out td .t { font-weight: 600; }
-.lens .t { font-family: var(--mono); font-size: 12.5px; white-space: pre; display: block; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
-.lens .pr { display: grid; grid-template-columns: 56px auto; gap: 6px; align-items: center; margin-top: 3px; }
-.lens .pbar { height: 5px; background: #d5e5f9; border-radius: 3px; overflow: hidden; }
-.lens .pbar > span { display: block; height: 100%; background: var(--series); }
-.lens .pv { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12px; }
-.lens-wrap { max-height: 480px; overflow: auto; border: 1px solid var(--rule-soft); border-radius: 4px; }
+/* numbers: a scrolling grid that only draws the cells in view */
+.vt { position: relative; }
+.vt > div { position: absolute; box-sizing: border-box; padding: 0 8px; font-size: 12px; line-height: 23px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vt .vc { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); border-bottom: 1px solid var(--rule-soft); cursor: pointer; color: var(--ink); }
+.vt .vc.neg { color: #1c5cab; }
+.vt .vc.sel { background: var(--gold-wash); }
+.vt .vc:hover { background: #eef2f6; }
+.vt .vh { top: 0; background: #fff; z-index: 2; color: var(--ink-2); font-weight: 600; text-align: right; border-bottom: 1px solid var(--rule); }
+.vt .vh.sel, .vt .vr.sel { color: var(--ink); background: var(--gold-wash); }
+.vt .vr { background: #fff; z-index: 2; color: var(--ink-2); font-family: var(--mono); border-bottom: 1px solid var(--rule-soft); border-right: 1px solid var(--rule); }
+.vt .corner { z-index: 3; text-align: left; border-right: 1px solid var(--rule); }
+/* predictions */
+.preds-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--rule-soft); border-radius: 4px; }
+.preds { width: 100%; border-collapse: collapse; font-size: 13px; }
+.preds th { text-align: left; color: var(--ink-2); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--rule); position: sticky; top: 0; background: #fff; z-index: 1; white-space: nowrap; }
+.preds td { padding: 5px 8px; border-bottom: 1px solid var(--rule-soft); vertical-align: top; min-width: 104px; }
+.preds tbody tr { cursor: pointer; }
+.preds tbody tr:hover td { background: #f6f8fa; }
+.preds tr.focus td { background: var(--gold-wash); }
+.preds td.pos { color: var(--ink-2); font-variant-numeric: tabular-nums; min-width: 0; white-space: nowrap; }
+.preds td.next { border-right: 1px solid var(--rule); }
+.preds .t { font-family: var(--mono); font-size: 12.5px; white-space: pre; display: block; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+.preds .hit .t { font-weight: 700; color: var(--navy); }
+.preds .pr { display: grid; grid-template-columns: 56px auto; gap: 6px; align-items: center; margin-top: 3px; }
+.preds .pbar { height: 5px; background: #d5e5f9; border-radius: 3px; overflow: hidden; }
+.preds .pbar > span { display: block; height: 100%; background: var(--series); }
+.preds .pv { font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 12px; }
+.preds .rank { font-size: 12px; color: var(--ink-2); }
+.preds .rank.low { color: #b54708; font-weight: 600; }
 .dl-menu { position: relative; }
 .dl-menu > summary { list-style: none; }
 .dl-menu > summary::-webkit-details-marker { display: none; }
@@ -216,14 +252,11 @@ svg text { font-family: var(--sans); }
 .act-backdrop { position: fixed; inset: 0; background: rgba(16, 32, 48, .4); z-index: 39; }
 #act-result.expanded { position: fixed; inset: 14px; z-index: 40; overflow: auto; margin: 0; box-shadow: 0 12px 48px rgba(16, 32, 48, .3); }
 #act-result.expanded .act-top { position: sticky; top: -18px; background: #fff; z-index: 5; padding: 18px 0 10px; margin-top: -18px; border-bottom: 1px solid var(--rule-soft); }
-#act-result.expanded .map-scroll { max-height: none; }
-#act-result.expanded .lens-wrap { max-height: 60vh; }
-.table-scroll { overflow: auto; max-height: 360px; margin-top: 8px; }
-table.plain { border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-table.plain th, table.plain td { padding: 2px 8px; border-bottom: 1px solid var(--rule-soft); text-align: right; white-space: nowrap; }
-table.plain th { color: var(--ink-2); font-weight: 600; position: sticky; top: 0; background: #fff; }
+#act-result.expanded .map-scroll { max-height: 72vh; }
+#act-result.expanded .preds-wrap { max-height: 60vh; }
 .saved { margin-top: 12px; }
 .saved pre { background: #f7f9fb; border: 1px solid var(--rule-soft); padding: 10px 12px; border-radius: 4px; overflow: auto; font-size: 12.5px; }
+.gen-actions { margin-top: 10px; }
 
 /* ---------- weights */
 .weights { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
@@ -260,26 +293,7 @@ details.exact .count { color: var(--ink-2); font-weight: 400; margin-left: 6px; 
   font-family: var(--mono); font-size: 12.5px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow: auto; }
 .exact-text .sp { background: var(--gold-wash); border: 1px solid #ddd2ac; border-radius: 3px; padding: 0 3px; color: #5c4d12; }
 
-/* ---------- activations controls */
-.color-row { display: flex; gap: 10px 22px; flex-wrap: wrap; align-items: center; margin: 0 0 14px; font-size: 13px; color: var(--ink-2); }
-.ctl { display: inline-flex; align-items: center; gap: 8px; }
-.seg.small span { padding: 3px 10px; font-size: 12.5px; }
 select { border: 1px solid var(--rule); border-radius: 4px; background: #fff; padding: 3px 6px; }
-.chan-pick { display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; padding: 10px 12px; background: #f7f9fb; border-radius: 6px; }
-.chips { display: flex; flex-wrap: wrap; gap: 4px; }
-.chip { border: 1px solid var(--rule); background: #fff; border-radius: 12px; padding: 1px 9px; font-size: 12.5px; cursor: pointer; font-variant-numeric: tabular-nums; }
-.chip small { color: var(--ink-2); margin-left: 4px; }
-.chip:hover { border-color: var(--navy); }
-.chip[aria-pressed=true] { background: var(--navy); color: #fff; border-color: var(--navy); }
-.chip[aria-pressed=true] small { color: #d6e2ee; }
-.vec-controls { margin-bottom: 10px; }
-.vec-plot { position: relative; flex: none; }
-.vec-canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; }
-.vec-mark { position: absolute; top: 6px; width: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
-.vec-scroll { max-height: 70vh; }
-.layer-scrub input[type=range] { width: 220px; accent-color: var(--navy); }
-.vlayer-label { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 9ch; }
-.vec-rowmark { position: absolute; left: 0; height: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
 
 /* ---------- GPU memory */
 .gpu-wrap { position: relative; }
@@ -480,6 +494,10 @@ body.con-open main { padding-bottom: 44vh; }
         <h2 style="margin-bottom:8px">Output</h2>
         <div class="output placeholder" id="gen-out" aria-live="polite">The model's reply appears here as it's written.</div>
         <p class="stats" id="gen-stats"></p>
+        <div class="row gen-actions" id="gen-actions" hidden>
+          <button class="btn quiet small" id="gen-analyze" type="button">Analyze this reply</button>
+          <span class="hint">Opens the prompt and the reply in Activations and analyzes them.</span>
+        </div>
       </div>
       <div class="panel" id="history-panel" hidden>
         <details id="history-box">
@@ -493,12 +511,20 @@ body.con-open main { padding-bottom: 44vh; }
     <!-- Activations -->
     <section role="tabpanel" id="p-act" aria-labelledby="tab-act" hidden>
       <div class="panel">
-        <p class="lede">Runs a prompt through the model once and keeps the residual stream: the vector each token carries from layer to layer. You can look at its size, at any single channel, at the whole vector for one token, and at what the model would predict next if it stopped at each layer.</p>
-        <label for="act-prompt" class="sr-only">Prompt to analyze</label>
+        <p class="lede">Runs text through the model once and keeps what it computed: for every layer and every token, the residual-stream vector. Look at that block one slice at a time, and see what the model predicted after each token.</p>
+        <div class="row prompt-head">
+          <label for="act-prompt" class="sub-label">Text to analyze</label>
+          <span class="spacer"></span>
+          <button class="linkish" id="act-copy-gen" type="button">Use the prompt from Generate</button>
+        </div>
         <textarea id="act-prompt" rows="3" placeholder="The capital of France is"></textarea>
+        <div class="from-gen" id="from-gen" hidden>
+          <label class="check"><input type="checkbox" id="act-use-gen" checked> Include the model's reply</label>
+          <span class="hint" id="from-gen-info"></span>
+        </div>
         <div class="options">
           <label class="check"><input type="checkbox" id="act-chat"> Chat format</label>
-          <span class="hint">Up to 256 tokens.</span>
+          <span class="hint">Up to 512 tokens.</span>
         </div>
         <p class="hint" id="act-chat-hint"></p>
         <div class="chat-opts" id="act-chat-opts" hidden>
@@ -515,7 +541,7 @@ body.con-open main { padding-bottom: 44vh; }
           <pre class="exact-text" id="act-exact-text"></pre>
           <p class="hint" id="act-exact-note"></p>
         </details>
-        <div class="row">
+        <div class="row" style="margin-top:12px">
           <button class="btn" id="act-run" type="button">Analyze</button>
           <button class="btn quiet" id="act-save" type="button">Save activations</button>
         </div>
@@ -535,98 +561,85 @@ body.con-open main { padding-bottom: 44vh; }
             <details class="dl-menu" id="dl-menu">
               <summary class="btn quiet">Download</summary>
               <div class="menu">
-                <button class="menu-item" type="button" data-dl="svg">The map as an SVG image</button>
-                <button class="menu-item" type="button" data-dl="vecpng">The full-vector view as a PNG image</button>
-                <button class="menu-item" type="button" data-dl="norms">State sizes as CSV (layers by tokens)</button>
-                <button class="menu-item" type="button" data-dl="chan" id="dl-chan">The selected channel as CSV (layers by tokens)</button>
-                <button class="menu-item" type="button" data-dl="vec" id="dl-vec">Every channel at the selected token as CSV (layers by channels)</button>
-                <button class="menu-item" type="button" data-dl="lslice" id="dl-lslice">Every channel at one layer as CSV (tokens by channels)</button>
-                <button class="menu-item" type="button" data-dl="lens">Top 5 predictions at every layer and token as CSV</button>
-                <button class="menu-item" type="button" data-dl="json">Sizes, predictions and largest channels as JSON</button>
-                <p class="hint">For the full activation vectors, use Save activations above.</p>
+                <button class="menu-item" type="button" data-dl="slice-csv" id="dl-slice-csv">This slice as CSV</button>
+                <button class="menu-item" type="button" data-dl="slice-png" id="dl-slice-png">This slice as a PNG image</button>
+                <button class="menu-item" type="button" data-dl="preds-csv">Predictions as CSV</button>
+                <button class="menu-item" type="button" data-dl="json">Tokens, predictions and largest channels as JSON</button>
+                <p class="hint">For every layer, token and channel at once, use Save activations.</p>
               </div>
             </details>
           </div>
         </div>
 
         <h3 class="sub">Tokens</h3>
-        <p class="hint">Pick a token, or click a cell in a map, to inspect it.</p>
+        <p class="hint" id="tokens-hint"></p>
         <div class="tokens" id="act-tokens" role="group" aria-label="Tokens"></div>
 
-        <div class="map-controls">
-          <div class="seg" role="radiogroup" aria-label="What the map shows">
-            <label><input type="radio" name="mapview" value="size" checked><span>State size</span></label>
-            <label><input type="radio" name="mapview" value="chan"><span>One channel</span></label>
-            <label><input type="radio" name="mapview" value="pred"><span>Top prediction</span></label>
-          </div>
+        <h3 class="sub">Activations</h3>
+        <p class="chart-sub">The activations form a block: layers by tokens by channels. Each view is one slice of it.</p>
+        <div class="slice-bar">
+          <span class="seg" role="radiogroup" aria-label="Which slice">
+            <label><input type="radio" name="slice" value="layer" checked><span>One layer</span></label>
+            <label><input type="radio" name="slice" value="chan"><span>One channel</span></label>
+            <label><input type="radio" name="slice" value="token"><span>One token</span></label>
+          </span>
+          <span class="picker" id="pick-layer">
+            <button class="btn quiet small" id="vl-prev" type="button" aria-label="Previous layer">‹</button>
+            <input type="range" id="vlayer" min="0" max="1" step="1" value="0" aria-label="Layer">
+            <button class="btn quiet small" id="vl-next" type="button" aria-label="Next layer">›</button>
+            <span class="pick-label" id="vlayer-label"></span>
+          </span>
+          <span class="picker" id="pick-chan" hidden>
+            <label class="field">Channel <input type="number" id="ch-input" min="0" step="1"></label>
+            <span class="hint" id="ch-of"></span>
+          </span>
+          <span class="picker" id="pick-token" hidden>
+            <button class="btn quiet small" id="tk-prev" type="button" aria-label="Previous token">‹</button>
+            <span class="pick-label" id="token-label"></span>
+            <button class="btn quiet small" id="tk-next" type="button" aria-label="Next token">›</button>
+          </span>
         </div>
-        <div class="chan-pick" id="chan-pick" hidden>
-          <label class="field">Channel <input type="number" id="ch-input" min="0" step="1"></label>
-          <span class="hint" id="ch-of"></span>
-          <span class="hint chips-label" id="ch-top-label">Largest values:</span>
+        <div class="chips-row" id="chips-row" hidden>
+          <span class="hint" id="ch-top-label">Largest values:</span>
           <div class="chips" id="ch-top"></div>
         </div>
-        <div class="color-row">
-          <span class="ctl" id="norm-ctl">Color range
-            <span class="seg small" role="radiogroup" aria-label="Color range">
-              <label><input type="radio" name="norm" value="global" checked><span>Whole map</span></label>
-              <label><input type="radio" name="norm" value="row"><span>Each layer</span></label>
+        <div class="view-bar">
+          <span class="seg small" role="radiogroup" aria-label="Show as">
+            <label><input type="radio" name="show" value="heat" checked><span>Heatmap</span></label>
+            <label><input type="radio" name="show" value="num"><span>Numbers</span></label>
+          </span>
+          <span class="ctl" id="zoom-ctl">Channel width
+            <span class="seg small" role="radiogroup" aria-label="Width of each channel">
+              <label><input type="radio" name="vzoom" value="fit" checked><span>Fit</span></label>
+              <label><input type="radio" name="vzoom" value="1"><span>1 px</span></label>
+              <label><input type="radio" name="vzoom" value="4"><span>4 px</span></label>
             </span>
           </span>
-          <span class="ctl">Scale
+          <span class="ctl" id="norm-ctl">Color range
+            <span class="seg small" role="radiogroup" aria-label="Color range">
+              <label><input type="radio" name="norm" value="global" checked><span>Whole slice</span></label>
+              <label><input type="radio" name="norm" value="row"><span>Each row</span></label>
+            </span>
+          </span>
+          <span class="ctl" id="scale-ctl">Scale
             <span class="seg small" role="radiogroup" aria-label="Scale">
               <label><input type="radio" name="scale" value="lin" checked><span>Linear</span></label>
               <label><input type="radio" name="scale" value="log"><span>Log</span></label>
             </span>
           </span>
-          <label class="ctl" id="cmap-ctl">Colors
-            <select id="cmap">
-              <option value="viridis">Viridis</option>
-              <option value="magma">Magma</option>
-              <option value="blues">Blues</option>
-            </select>
-          </label>
           <label class="check" id="skip-row"><input type="checkbox" id="skip-first" checked> Leave the first token out of the range</label>
         </div>
-        <p class="chart-title" id="map-title"></p>
-        <p class="chart-sub" id="heat-sub"></p>
-        <div class="map-scroll" id="heat"></div>
-        <div class="heat-legend-row"><span class="legend" id="heat-legend"></span><span class="hint" id="scroll-hint"></span></div>
+        <p class="chart-title" id="slice-title"></p>
+        <p class="chart-sub" id="slice-sub"></p>
+        <div class="map-scroll slice-box" id="slice"></div>
+        <div class="heat-legend-row"><span class="legend" id="slice-legend"></span><span class="hint" id="slice-status"></span></div>
 
-        <h3 class="sub" id="vec-title">Every channel at the selected token</h3>
-        <p class="chart-sub" id="vec-sub"></p>
-        <div class="row vec-controls">
-          <span class="seg small" role="radiogroup" aria-label="Which slice of the activations">
-            <label><input type="radio" name="vslice" value="token" checked><span>One token, every layer</span></label>
-            <label><input type="radio" name="vslice" value="layer"><span>One layer, every token</span></label>
-          </span>
-          <span class="ctl layer-scrub" id="vlayer-ctl" hidden>
-            <button class="btn quiet small" id="vl-prev" type="button" aria-label="Previous layer">‹</button>
-            <input type="range" id="vlayer" min="0" max="1" step="1" value="0" aria-label="Layer">
-            <button class="btn quiet small" id="vl-next" type="button" aria-label="Next layer">›</button>
-            <span id="vlayer-label" class="vlayer-label"></span>
-          </span>
+        <h3 class="sub">Predictions</h3>
+        <p class="chart-sub" id="pred-sub"></p>
+        <div class="row" id="pred-filter-row" hidden style="margin-bottom:8px">
+          <label class="check"><input type="checkbox" id="pred-reply-only" checked> Only the reply</label>
         </div>
-        <div class="row vec-controls">
-          <span class="seg small" role="radiogroup" aria-label="Width of each channel">
-            <label><input type="radio" name="vzoom" value="fit" checked><span>Fit to width</span></label>
-            <label><input type="radio" name="vzoom" value="1"><span>1 px per channel</span></label>
-            <label><input type="radio" name="vzoom" value="4"><span>4 px per channel</span></label>
-          </span>
-          <span class="hint" id="vec-status"></span>
-        </div>
-        <div class="map-scroll vec-scroll" id="vec"></div>
-        <div class="heat-legend-row"><span class="legend" id="vec-legend"></span></div>
-
-        <h3 class="sub" id="lens-title">Prediction at each layer</h3>
-        <p class="chart-sub">Each row reads the model's state at that layer through its final norm and output head (the "logit lens"). The top row is the model's real output.</p>
-        <p class="msg warn" id="lens-warn" hidden></p>
-        <div class="lens-wrap"><table class="lens" id="lens"></table></div>
-
-        <details style="margin-top:14px">
-          <summary>Show the state sizes as a table</summary>
-          <div class="table-scroll" id="norm-table"></div>
-        </details>
+        <div class="preds-wrap"><table class="preds" id="preds"></table></div>
       </div>
     </section>
 
@@ -926,8 +939,8 @@ function hideTip() { tip.style.display = "none"; }
 // ------------------------------------------------------------------ state
 const S = { status: null, models: null, chosen: null, analysis: null, pos: null, layerFocus: null,
             weights: null, wSelected: null, history: [], genTask: null, card: null, readme: null, across: null,
-            wLayer: 0, chan: null, chanCache: new Map(), chanLoading: new Set(), vec: null, vecCache: new Map(),
-            layerCache: new Map(), lslice: null, vLayer: null };
+            wLayer: 0, chan: null, vLayer: null, cache: { layer: new Map(), chan: new Map(), token: new Map() }, sliceGeom: null,
+            lastGen: null, actDirty: false };
 
 // ------------------------------------------------------------------ session bar
 function setLost(v) {
@@ -1180,7 +1193,8 @@ async function unload() {
 function onModelChanged(info) {
   if (S.status) S.status.model = info || null;
   Object.assign(S, { weights: null, wSelected: null, wIndex: null, wLayer: 0, analysis: null, card: null, cardError: null,
-                     readme: null, across: null, vec: null });
+                     readme: null, across: null, lastGen: null });
+  $("gen-actions").hidden = true; $("from-gen").hidden = true;
   $("act-result").hidden = true; $("w-body").hidden = true; $("w-empty").hidden = false; $("w-layer").replaceChildren();
   if (info) {
     const instruct = info.chat_template && info.instruct_guess;
@@ -1218,7 +1232,7 @@ function selectTab(tab) {
     $(t.getAttribute("aria-controls")).hidden = !on;
   }
   if (tab.id === "tab-w") loadWeights();
-  if (tab.id === "tab-act" && S.analysis) { drawHeat(); S.vecGeom = null; drawVec(); }
+  if (tab.id === "tab-act") { genToAct(false); if (S.analysis) { S.sliceGeom = null; drawSlice(); } }
 }
 tabs.forEach((t, i) => {
   t.addEventListener("click", () => selectTab(t));
@@ -1232,16 +1246,17 @@ tabs.forEach((t, i) => {
 // Generate and Activations share this: system prompt and thinking only show when Chat format is on,
 // and "Exact input to the model" shows the tokens the model will actually receive.
 const PB = {};
-function promptBox(pre, { usePlaceholder = false, thinkText = "", analyze = false } = {}) {
+function promptBox(pre, { usePlaceholder = false, thinkText = "", analyze = false, extra = null } = {}) {
   const q = (k) => $(`${pre}-${k}`);
   const box = {
     seq: 0, timer: null,
-    params() {
+    base() {
       const chat = q("chat").checked && !q("chat").disabled;
       const think = chat && q("think").checked && !q("think-row").hidden;
       return { prompt: q("prompt").value || (usePlaceholder ? q("prompt").placeholder : ""), chat, thinking: think,
                system: chat ? q("system").value : "" };
     },
+    params() { const b = box.base(); return extra ? Object.assign(b, extra(b)) : b; },
     sync() {
       const m = S.status && S.status.model, chat = q("chat").checked && !q("chat").disabled;
       q("chat-opts").hidden = !chat;
@@ -1265,12 +1280,16 @@ function promptBox(pre, { usePlaceholder = false, thinkText = "", analyze = fals
         if (seq !== box.seq) return;
         if (r.unavailable) { count.textContent = ""; out.replaceChildren(); note.textContent = r.unavailable; return; }
         count.textContent = `(${fmtInt.format(r.count)} token${r.count === 1 ? "" : "s"})`;
-        out.replaceChildren(...r.segments.map((g) => (g.s ? el("span", { class: "sp", text: g.t }) : document.createTextNode(g.t))));
+        out.replaceChildren(...r.segments.map((g) => {
+          const n = g.s ? el("span", { class: "sp", text: g.t }) : document.createTextNode(g.t);
+          return g.r ? el("span", { class: "rp" }, n) : n;
+        }));
         const bits = [];
         bits.push(r.special ? `Highlighted: ${r.special} special token${r.special === 1 ? "" : "s"} added by ${p.chat ? "the chat template and " : ""}the tokenizer.`
                             : "No special tokens were added.");
         if (r.cut) bits.push("Showing the first 8,192 tokens.");
-        if (analyze && r.count > 256) bits.push(`Analyze reads the first 256 of these ${fmtInt.format(r.count)} tokens.`);
+        if (r.reply_tokens) bits.push(`The last ${fmtInt.format(r.reply_tokens)} tokens, shaded blue, are the model's reply from Generate.`);
+        if (analyze && r.count > 512) bits.push(`Analyze reads the first 512 of these ${fmtInt.format(r.count)} tokens.`);
         note.textContent = bits.join(" ");
       } catch (e) { if (seq === box.seq) { count.textContent = ""; note.textContent = e.message; } }
     },
@@ -1282,7 +1301,7 @@ function promptBox(pre, { usePlaceholder = false, thinkText = "", analyze = fals
   return box;
 }
 promptBox("gen", { thinkText: "The model writes out its reasoning before the answer. The reasoning counts toward Max new tokens, so raise it." });
-promptBox("act", { usePlaceholder: true, analyze: true,
+promptBox("act", { usePlaceholder: true, analyze: true, extra: (b) => fromGenParam(b),
                    thinkText: "Uses the template's thinking mode, which changes the tokens after your message. Analyze reads the prompt only; it doesn't generate." });
 function refreshPrompts() { for (const b of Object.values(PB)) { b.sync(); b.schedule(); } }
 
@@ -1321,6 +1340,9 @@ async function generate() {
       body.textContent = res.text;
       $("gen-stats").textContent = `${fmtInt.format(res.new_tokens)} new tokens in ${nf(1).format(res.seconds)} s` +
         (res.tokens_per_s ? `, ${nf(1).format(res.tokens_per_s)} tokens per second` : "") + (res.stopped ? ". Stopped early." : ".");
+      S.lastGen = res.gen_id ? { gen_id: res.gen_id, prompt: p.prompt, chat: p.chat, system: p.system || "", thinking: !!p.thinking, new_tokens: res.new_tokens } : null;
+      $("gen-actions").hidden = !S.lastGen;
+      genToAct(false);
       S.history.unshift({ p, text: res.text, model: res.model });
       S.history = S.history.slice(0, 20); renderHistory();
     }
@@ -1345,75 +1367,77 @@ function renderHistory() {
 }
 
 // ------------------------------------------------------------------ activations
-// Colors. Sizes and probabilities use a sequential map you pick; signed values (channels) always use
-// blue for negative and red for positive, with gray at zero.
-const CMAP_STOPS = {
-  viridis: ["#440154", "#482878", "#3e4989", "#31688e", "#26828e", "#1f9e89", "#35b779", "#6ece58", "#b5de2b", "#fde725"],
-  magma: ["#000004", "#180f3d", "#440f76", "#721f81", "#9e2f7f", "#cd4071", "#f1605d", "#fd9668", "#feca8d", "#fcfdbf"],
-  blues: ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"],
-  div: ["#0d366b", "#1c5cab", "#3987e5", "#86b6ef", "#cde2fb", "#f0efec", "#f9d3cd", "#f2a197", "#e34948", "#b52b2b", "#7a1717"],
-};
+// The analysis keeps the residual stream on the GPU session's CPU as a block of layers x tokens x channels.
+// This tab shows one slice of it at a time (one layer, one channel or one token), as a heatmap or as numbers,
+// and the model's predictions after each token.
+const DIV_STOPS = ["#0d366b", "#1c5cab", "#3987e5", "#86b6ef", "#cde2fb", "#f0efec", "#f9d3cd", "#f2a197", "#e34948", "#b52b2b", "#7a1717"];
 const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-const CMAP_RGB = Object.fromEntries(Object.entries(CMAP_STOPS).map(([k, v]) => [k, v.map(hexRGB)]));
-function lerpRGB(stops, t) {
-  t = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0)) * (stops.length - 1);
-  const i = Math.min(stops.length - 2, Math.floor(t)), f = t - i, a = stops[i], b = stops[i + 1];
+const DIV_RGB = DIV_STOPS.map(hexRGB);
+function divRGB(t) {   // -1 (blue) .. 0 (gray) .. +1 (red)
+  t = (Math.max(-1, Math.min(1, Number.isFinite(t) ? t : 0)) + 1) / 2 * (DIV_RGB.length - 1);
+  const i = Math.min(DIV_RGB.length - 2, Math.floor(t)), f = t - i, a = DIV_RGB[i], b = DIV_RGB[i + 1];
   return [Math.round(a[0] + (b[0] - a[0]) * f), Math.round(a[1] + (b[1] - a[1]) * f), Math.round(a[2] + (b[2] - a[2]) * f)];
 }
-const rgbCss = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
-const cmapName = () => (CMAP_RGB[$("cmap").value] ? $("cmap").value : "viridis");
-const seqRGB = (t) => lerpRGB(CMAP_RGB[cmapName()], t);
-const divRGB = (t) => lerpRGB(CMAP_RGB.div, (Math.max(-1, Math.min(1, t)) + 1) / 2);
-const isDark = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] < 140;
-const colorOpts = () => ({ mode: document.querySelector("input[name=norm]:checked").value,
-                           log: document.querySelector("input[name=scale]:checked").value === "log" });
-// rows: one array per layer. skip: leading columns (tokens) left out of the color range.
-function makeScale(rows, signed, skip = 0, skipRows = 0, forceGlobal = false) {
-  const { log } = colorOpts(), mode = forceGlobal ? "global" : colorOpts().mode;
-  const tf = log ? (v) => (v > 0 ? Math.log10(v) : NaN) : (v) => v;
-  let stats = rows.map((row) => {
-    let lo = Infinity, hi = -Infinity, m = 0;
-    for (let j = skip; j < row.length; j++) {
-      const v = row[j];
-      if (!Number.isFinite(v)) continue;
-      if (signed) { const a = Math.abs(v); if (a > m) m = a; }
-      else { const x = tf(v); if (Number.isFinite(x)) { if (x < lo) lo = x; if (x > hi) hi = x; } }
-    }
-    return { lo, hi, m };
-  });
+const radio = (name) => document.querySelector(`input[name=${name}]:checked`).value;
+const setRadio = (name, v) => { const r = document.querySelector(`input[name=${name}][value=${v}]`); if (r) r.checked = true; };
+// Color scale for signed values. rows: arrays of numbers; skipCols / skipRows leave the first token out of the range.
+function makeScale(rows, skipCols = 0, skipRows = 0) {
+  const mode = radio("norm"), log = radio("scale") === "log";
+  let m = rows.map((row) => { let x = 0; for (let j = skipCols; j < row.length; j++) { const a = Math.abs(row[j]); if (a > x && Number.isFinite(a)) x = a; } return x; });
   if (mode === "global") {
-    let lo = Infinity, hi = -Infinity, m = 0;
-    stats.forEach((s, i) => { if (i < skipRows && stats.length > skipRows) return; lo = Math.min(lo, s.lo); hi = Math.max(hi, s.hi); m = Math.max(m, s.m); });
-    stats = stats.map(() => ({ lo, hi, m }));
+    let g = 0; m.forEach((x, i) => { if (i >= skipRows || m.length <= skipRows) g = Math.max(g, x); });
+    m = m.map(() => g);
   }
-  const f = signed
-    ? (v, li) => {
-        const M = stats[li].m || 1;
-        if (!log) return v / M;
-        const s0 = M / 1000;                                 // symmetric log: linear near 0, log further out
-        return Math.sign(v) * Math.log1p(Math.abs(v) / s0) / Math.log1p(M / s0);
-      }
-    : (v, li) => { const { lo, hi } = stats[li], x = tf(v); return Number.isFinite(x) ? (hi > lo ? (x - lo) / (hi - lo) : 0.5) : 0; };
-  return { f, stats, mode, log, signed, color: (v, li) => (signed ? divRGB(f(v, li)) : seqRGB(f(v, li))) };
+  const f = (v, i) => {
+    const M = m[i] || 1;
+    if (!log) return v / M;
+    const s0 = M / 1000;                                   // symmetric log: linear near 0, log further out
+    return Math.sign(v) * Math.log1p(Math.abs(v) / s0) / Math.log1p(M / s0);
+  };
+  return { f, m, mode, log };
 }
-function predScale() {
-  const { log } = colorOpts();
-  return { log, pred: true, signed: false, color: (p) => seqRGB(log ? (Math.log10(Math.max(p, 1e-4)) + 4) / 4 : p) };
-}
-function drawLegend(host, sc) {
+function drawLegend(host, sc, rowNoun) {
   host.replaceChildren();
-  const ramp = el("span", { class: "ramp" });
-  ramp.style.background = `linear-gradient(90deg, ${(sc.signed ? CMAP_STOPS.div : CMAP_STOPS[cmapName()]).join(",")})`;
-  if (sc.pred) host.append(el("span", { text: sc.log ? "Probability 0.0001 or less" : "Probability 0" }), ramp, el("span", { text: "1" }));
-  else if (sc.signed && sc.mode === "row") host.append(el("span", { text: "Most negative" }), ramp, el("span", { text: "most positive in each layer, gray is 0" }));
-  else if (sc.signed) { const M = sc.stats[0].m; host.append(el("span", { text: "−" + fmt(M, 3) }), ramp, el("span", { text: "+" + fmt(M, 3) + ", gray is 0" })); }
-  else if (sc.mode === "row") host.append(el("span", { text: "Smallest" }), ramp, el("span", { text: "largest in each layer" }));
-  else { const { lo, hi } = sc.stats[0], b = (x) => fmt(sc.log ? 10 ** x : x, 3); host.append(el("span", { text: b(lo) }), ramp, el("span", { text: b(hi) })); }
-  if (sc.log) host.append(el("span", { class: "hint", text: sc.signed ? "(symmetric log scale)" : "(log scale)" }));
+  const ramp = el("span", { class: "ramp" }); ramp.style.background = `linear-gradient(90deg, ${DIV_STOPS.join(",")})`;
+  if (sc.mode === "row") host.append(el("span", { text: "Most negative" }), ramp, el("span", { text: `most positive in each ${rowNoun}, gray is 0` }));
+  else host.append(el("span", { text: "−" + fmt(sc.m[0], 3) }), ramp, el("span", { text: "+" + fmt(sc.m[0], 3) + ", gray is 0" }));
+  if (sc.log) host.append(el("span", { class: "hint", text: "(symmetric log scale)" }));
 }
-const mapView = () => document.querySelector("input[name=mapview]:checked").value;
-function setMapView(v) { const r = document.querySelector(`input[name=mapview][value=${v}]`); if (r) r.checked = true; }
+const layerName = (li) => (li === 0 ? "emb" : String(li));
+const layerWords = (li) => (li === 0 ? "the embeddings" : `layer ${li}`);
+const sliceMode = () => radio("slice");
 const skipFirst = () => !!(S.analysis && $("skip-first").checked && S.analysis.tokens.length >= 3);
+function scrollWithin(box, child) {   // bring a child into view inside its own scroll box, without moving the page
+  const b = box.getBoundingClientRect(), c = child.getBoundingClientRect();
+  if (c.top < b.top) box.scrollTop += c.top - b.top - 4; else if (c.bottom > b.bottom) box.scrollTop += c.bottom - b.bottom + 4;
+}
+
+// ---- what gets analyzed: your text, or the last generation (prompt + reply) carried over from Generate
+function genMatches(p) {
+  const g = S.lastGen; if (!g) return false;
+  return p.prompt === g.prompt && p.chat === g.chat && (p.system || "") === (g.system || "") && !!p.thinking === !!g.thinking;
+}
+function fromGenParam(base) {
+  return genMatches(base) && $("act-use-gen").checked ? { from_generation: S.lastGen.gen_id } : {};
+}
+function updateFromGen() {
+  const ok = genMatches(PB.act.base());
+  $("from-gen").hidden = !ok;
+  if (ok) $("from-gen-info").textContent = `${fmtInt.format(S.lastGen.new_tokens)} tokens the model wrote after this prompt in Generate.`;
+}
+function genToAct(force) {   // copy Generate's prompt and settings into Activations, unless you've changed them here
+  if (S.actDirty && !force) { updateFromGen(); return; }
+  $("act-prompt").value = $("gen-prompt").value; $("act-system").value = $("gen-system").value;
+  $("act-chat").checked = $("gen-chat").checked; $("act-think").checked = $("gen-think").checked;
+  S.actDirty = false; PB.act.sync(); updateFromGen(); PB.act.schedule();
+}
+for (const id of ["act-prompt", "act-system"]) $(id).addEventListener("input", () => { S.actDirty = true; updateFromGen(); });
+for (const id of ["act-chat", "act-think"]) $(id).addEventListener("change", () => { S.actDirty = true; updateFromGen(); });
+$("act-use-gen").addEventListener("change", () => PB.act.schedule());
+$("act-copy-gen").addEventListener("click", () => genToAct(true));
+$("gen-analyze").addEventListener("click", () => {
+  genToAct(true); $("act-use-gen").checked = true; selectTab($("tab-act")); $("act-run").click();
+});
 
 // ---- running an analysis
 $("act-run").addEventListener("click", async () => {
@@ -1422,10 +1446,12 @@ $("act-run").addEventListener("click", async () => {
   try {
     $("act-progress").hidden = false;
     const r = await runTask("/api/analyze", p, (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
-    S.analysis = r; S.analysisParams = p; S.pos = r.tokens.length - 1; S.layerFocus = null; S.mapGeom = null;
-    S.chanCache = new Map(); S.chanLoading = new Set(); S.vecCache = new Map(); S.vec = null; S.vecGeom = null;
-    S.layerCache = new Map(); S.lslice = null; S.vLayer = r.layers;
+    if (!r) return;
+    S.analysis = r; S.analysisParams = p;
+    S.pos = r.n_prompt != null ? r.n_prompt : r.tokens.length - 1;   // the first reply token, or the last token
+    S.vLayer = r.layers;
     S.chan = ((r.tokens.length >= 3 ? r.top_channels_skip : r.top_channels)[0] || { c: 0 }).c;
+    S.cache = { layer: new Map(), chan: new Map(), token: new Map() }; S.sliceGeom = null;
     showMsg("act-msg", r.truncated ? `Showing the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "", r.truncated ? "warn" : "");
     $("act-result").hidden = false; renderAnalysis();
   } catch (e) { showMsg("act-msg", e.message, "error"); }
@@ -1436,6 +1462,7 @@ $("act-save").addEventListener("click", async () => {
   try {
     $("act-progress").hidden = false;
     const r = await runTask("/api/export", PB.act.params(), (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
+    if (!r) return;
     showMsg("act-msg", "");
     const box = $("act-saved"); box.hidden = false;
     const code = `import torch\nd = torch.load("${r.path}")\nacts = d["residual_stream"]   # shape ${JSON.stringify(r.shape)}: [layers + 1, tokens, width]\ntokens = d["tokens"]`;
@@ -1448,378 +1475,326 @@ $("act-save").addEventListener("click", async () => {
   finally { $("act-save").disabled = false; $("act-progress").hidden = true; }
 });
 $("act-prompt").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); $("act-run").click(); } });
-const redrawAll = () => { if (!S.analysis) return; drawHeat(); drawVec(); renderChanPicker(); };
-document.querySelectorAll("input[name=norm], input[name=scale]").forEach((r) => r.addEventListener("change", redrawAll));
-$("cmap").addEventListener("change", redrawAll);
-$("skip-first").addEventListener("change", redrawAll);
-document.querySelectorAll("input[name=mapview]").forEach((r) => r.addEventListener("change", () => { S.mapGeom = null; drawHeat(); }));
-document.querySelectorAll("input[name=vzoom]").forEach((r) => r.addEventListener("change", () => { S.vecGeom = null; drawVec(); }));
-const vslice = () => document.querySelector("input[name=vslice]:checked").value;
-document.querySelectorAll("input[name=vslice]").forEach((r) => r.addEventListener("change", () => {
-  S.vecGeom = null;
-  if (vslice() === "layer" && S.layerFocus != null) S.vLayer = S.layerFocus;
-  loadVector();
-}));
-function setVLayer(li) {
-  const r = S.analysis; if (!r) return;
-  S.vLayer = Math.max(0, Math.min(r.layers, li)); $("vlayer").value = S.vLayer; vlayerLabel(); loadVector();
-}
-const vlayerLabel = () => { $("vlayer-label").textContent = S.vLayer === 0 ? "embeddings" : `layer ${S.vLayer} of ${S.analysis.layers}`; };
-let vlTimer = null;
-$("vlayer").addEventListener("input", () => { S.vLayer = Number($("vlayer").value); vlayerLabel(); clearTimeout(vlTimer); vlTimer = setTimeout(loadVector, 120); });
-$("vl-prev").addEventListener("click", () => setVLayer(S.vLayer - 1));
-$("vl-next").addEventListener("click", () => setVLayer(S.vLayer + 1));
 
+// ---- results
 function renderAnalysis() {
+  const r = S.analysis;
+  $("act-summary").textContent = `${r.model}: ${r.tokens.length} tokens${r.n_prompt != null ? ` (${r.n_prompt} prompt, ${r.tokens.length - r.n_prompt} reply)` : ""}, ` +
+    `${r.layers} layers, ${fmtInt.format(r.width)} channels.` + (r.truncated ? ` Only the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "");
+  $("tokens-hint").textContent = r.n_prompt != null ? "Click a token to select it. The model's reply is underlined in blue." : "Click a token to select it.";
+  $("vlayer").max = r.layers;
+  $("ch-input").max = r.width - 1;
+  $("ch-of").textContent = `of ${fmtInt.format(r.width)} (0 to ${fmtInt.format(r.width - 1)})`;
+  $("pred-filter-row").hidden = r.n_prompt == null;
+  renderTokens(); renderPickers(); drawPreds(); loadSlice();
+}
+function renderTokens() {
   const r = S.analysis, box = $("act-tokens"); box.replaceChildren();
   r.tokens.forEach((t, i) => {
-    const b = el("button", { class: "tok", type: "button", "aria-pressed": String(i === S.pos), title: `Token ${i}` }, tokenNode(t));
-    b.addEventListener("click", () => { S.pos = i; S.layerFocus = null; renderAnalysis(); });
+    const b = el("button", { class: "tok" + (r.n_prompt != null && i >= r.n_prompt ? " reply" : ""), type: "button", "aria-pressed": String(i === S.pos), title: `Token ${i}` }, tokenNode(t));
+    b.addEventListener("click", () => selectToken(i));
     box.append(b);
   });
-  $("skip-row").hidden = r.tokens.length < 3;
-  $("act-summary").textContent = `${r.model}: ${r.tokens.length} tokens, ${r.layers} layers, ${fmtInt.format(r.width)} channels.` +
-    (r.truncated ? ` Only the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "");
-  if (vslice() === "layer" && S.layerFocus != null && S.layerFocus !== S.vLayer) S.vLayer = S.layerFocus;
-  renderChanPicker(); drawHeat(); drawLens(); drawNormTable(); loadVector();
   const sel = box.querySelector("[aria-pressed=true]"); if (sel) scrollWithin(box, sel);
 }
-function heatScale() { return makeScale(S.analysis.norms, false, skipFirst() ? 1 : 0); }
-const layerName = (li) => (li === 0 ? "emb" : String(li));
-// Bring a child into view inside its own scroll box without moving the page.
-function scrollWithin(box, child) {
-  const b = box.getBoundingClientRect(), c = child.getBoundingClientRect();
-  if (c.top < b.top) box.scrollTop += c.top - b.top - 4; else if (c.bottom > b.bottom) box.scrollTop += c.bottom - b.bottom + 4;
+function selectToken(i) {
+  S.pos = Math.max(0, Math.min(S.analysis.tokens.length - 1, i));
+  renderTokens(); renderPickers(); drawPreds();
+  if (sliceMode() === "token") loadSlice(); else drawSlice();
 }
-
-// ---- one channel
-function renderChanPicker() {
-  const r = S.analysis; if (!r) return;
-  $("ch-input").max = r.width - 1;
-  if (S.chan != null && document.activeElement !== $("ch-input")) $("ch-input").value = S.chan;
-  $("ch-of").textContent = `of ${fmtInt.format(r.width)}, numbered 0 to ${fmtInt.format(r.width - 1)}`;
+function selectLayer(li) {
+  S.vLayer = Math.max(0, Math.min(S.analysis.layers, li)); renderPickers();
+  if (sliceMode() === "layer") loadSlice(); else drawSlice();
+}
+function selectChannel(c) {
+  const r = S.analysis;
+  if (!Number.isInteger(c) || c < 0 || c >= r.width) { showMsg("act-msg", `Pick a channel from 0 to ${r.width - 1}.`, "error"); return; }
+  S.chan = c; renderPickers();
+  if (sliceMode() === "chan") loadSlice(); else drawSlice();
+}
+function showSlice(mode) { setRadio("slice", mode); S.sliceGeom = null; renderPickers(); loadSlice(); }
+function renderPickers() {
+  const r = S.analysis, mode = sliceMode();
+  $("pick-layer").hidden = mode !== "layer"; $("pick-chan").hidden = mode !== "chan"; $("pick-token").hidden = mode !== "token";
+  $("chips-row").hidden = mode !== "chan";
+  $("vlayer").value = S.vLayer; $("vlayer-label").textContent = S.vLayer === 0 ? "embeddings" : `layer ${S.vLayer} of ${r.layers}`;
+  if (document.activeElement !== $("ch-input")) $("ch-input").value = S.chan;
+  $("token-label").replaceChildren(document.createTextNode(`token ${S.pos} `), el("code", { text: tokenText(r.tokens[S.pos]) }));
   const list = (skipFirst() ? r.top_channels_skip : r.top_channels).slice(0, 10), host = $("ch-top"); host.replaceChildren();
   $("ch-top-label").textContent = skipFirst() ? "Largest values, leaving out the first token:" : "Largest values:";
   for (const t of list) {
     const b = el("button", { class: "chip", type: "button", "aria-pressed": String(t.c === S.chan),
       title: `Channel ${t.c} reaches ${fmt(t.value, 4)} ${t.layer === 0 ? "in the embeddings" : "after layer " + t.layer}, at token ${t.pos} (${tokenText(r.tokens[t.pos])})` },
       document.createTextNode(String(t.c)), el("small", { text: fmt(t.value, 3) }));
-    b.addEventListener("click", () => { setMapView("chan"); S.mapGeom = null; loadChannel(t.c); });
+    b.addEventListener("click", () => selectChannel(t.c));
     host.append(b);
   }
 }
-$("ch-input").addEventListener("change", () => { const c = Math.round(Number($("ch-input").value)); setMapView("chan"); loadChannel(c); });
-async function loadChannel(c) {
-  const r = S.analysis; if (!r) return;
-  if (!Number.isInteger(c) || c < 0 || c >= r.width) { showMsg("act-msg", `Pick a channel from 0 to ${r.width - 1}.`, "error"); return; }
-  S.chan = c; renderChanPicker();
-  if (!S.chanCache.has(c)) {
-    if (S.chanLoading.has(c)) return;
-    S.chanLoading.add(c);                       // before drawHeat, which would otherwise ask for it again
-    if (mapView() === "chan") drawHeat();
-    try {
-      const j = await api(`/api/act/channel?aid=${r.aid}&c=${c}`);
-      if (S.analysis !== r) return;
-      S.chanCache.set(c, j.values);
-    } catch (e) { showMsg("act-msg", e.message, "error"); return; }
-    finally { S.chanLoading.delete(c); }
-  }
-  if (S.chan === c) { if (mapView() === "chan") drawHeat(); drawVec(); }
-}
+document.querySelectorAll("input[name=slice]").forEach((x) => x.addEventListener("change", () => showSlice(sliceMode())));
+document.querySelectorAll("input[name=show], input[name=vzoom]").forEach((x) => x.addEventListener("change", () => { S.sliceGeom = null; drawSlice(); }));
+document.querySelectorAll("input[name=norm], input[name=scale]").forEach((x) => x.addEventListener("change", drawSlice));
+$("skip-first").addEventListener("change", () => { renderPickers(); drawSlice(); });
+let vlTimer = null;
+$("vlayer").addEventListener("input", () => {
+  S.vLayer = Number($("vlayer").value); $("vlayer-label").textContent = S.vLayer === 0 ? "embeddings" : `layer ${S.vLayer} of ${S.analysis.layers}`;
+  clearTimeout(vlTimer); vlTimer = setTimeout(() => selectLayer(S.vLayer), 120);
+});
+$("vl-prev").addEventListener("click", () => selectLayer(S.vLayer - 1));
+$("vl-next").addEventListener("click", () => selectLayer(S.vLayer + 1));
+$("tk-prev").addEventListener("click", () => selectToken(S.pos - 1));
+$("tk-next").addEventListener("click", () => selectToken(S.pos + 1));
+$("ch-input").addEventListener("change", () => selectChannel(Math.round(Number($("ch-input").value))));
 
-// ---- the map: layers bottom to top, tokens left to right. It scrolls; the layer labels stay put.
-function drawHeat() {
-  const r = S.analysis; if (!r) return;
-  const host = $("heat"), keep = { left: host.scrollLeft, top: host.scrollTop };
-  const view = mapView(), expanded = $("act-result").classList.contains("expanded");
-  $("chan-pick").hidden = view !== "chan";
-  $("cmap-ctl").hidden = view === "chan";
-  $("norm-ctl").hidden = view === "pred";
-  $("skip-row").hidden = view === "pred" || r.tokens.length < 3;
-  const L = r.norms.length, T = r.tokens.length;
-  let V;
-  if (view === "size") V = r.norms;
-  else if (view === "pred") V = r.lens_p.map((row) => row.map((x) => x[0]));
-  else {
-    V = S.chanCache.get(S.chan);
-    if (!V) {
-      host.replaceChildren(el("p", { class: "empty", style: "padding:14px", text: `Loading channel ${S.chan}…` }));
-      $("map-title").textContent = `Channel ${S.chan} at each layer and token`; $("heat-sub").textContent = "";
-      if (!S.chanLoading.has(S.chan)) loadChannel(S.chan);
-      return;
-    }
-  }
-  host.replaceChildren();
-  const sc = view === "pred" ? predScale() : makeScale(V, view === "chan", skipFirst() ? 1 : 0);
-  const avail = Math.max(300, (host.clientWidth || 900) - 50);
-  let cw, ch;
-  if (view === "pred") { cw = expanded ? 84 : 66; ch = expanded ? 24 : 20; }
-  else {
-    cw = Math.max(expanded ? 22 : 14, Math.min(expanded ? 64 : 44, Math.floor(avail / T)));
-    ch = Math.max(expanded ? 12 : 8, Math.min(expanded ? 26 : 16, Math.floor((expanded ? innerHeight - 330 : 520) / L)));
-  }
-  const top = 6, axisW = 50, bottom = view === "pred" || T > 24 ? 96 : 64;
-  const plotW = cw * T, plotH = ch * L, H = top + plotH + bottom;
-  const axis = svg("svg", { class: "axis", width: axisW, height: H, "aria-hidden": "true" });
-  const ga = svg("g", { transform: `translate(${axisW},${top})` }); axis.append(ga);
-  const step = view === "pred" ? 1 : (ch >= 14 ? 1 : L > 40 ? 8 : L > 16 ? 4 : 2);
-  for (let li = 0; li < L; li += step) {
-    const t = svg("text", { x: -8, y: plotH - li * ch - ch / 2 + 4, "text-anchor": "end", "font-size": 11, fill: "#5b6672" });
-    t.textContent = layerName(li); ga.append(t);
-  }
-  const yl = svg("text", { transform: `translate(${-axisW + 11},${plotH / 2}) rotate(-90)`, "text-anchor": "middle", "font-size": 11, fill: "#5b6672" });
-  yl.textContent = "Layer"; ga.append(yl);
-  const label = { size: `Map of internal state size, ${L - 1} layers by ${T} tokens. The table below has the same numbers.`,
-                  chan: `Map of channel ${S.chan}, ${L - 1} layers by ${T} tokens. Download it as CSV from the Download menu.`,
-                  pred: "Map of the top prediction at each layer and token. The prediction table below lists them." }[view];
-  const grid = svg("svg", { class: "grid", width: plotW + 12, height: H, role: "img", "aria-label": label });
-  const g = svg("g", { transform: `translate(0,${top})` }); grid.append(g);
-  const chars = Math.max(2, Math.floor((cw - 8) / 7));
-  for (let li = 0; li < L; li++) {
-    const y = plotH - (li + 1) * ch, where = li === 0 ? "In the embeddings" : "After layer " + li;
-    for (let j = 0; j < T; j++) {
-      const v = V[li][j], c = sc.color(v, li);
-      let tipValue, tipLabel, text = null;
-      if (view === "size") { tipValue = fmt(v, 4); tipLabel = `${where}, token ${j}: ${tokenText(r.tokens[j])}`; }
-      else if (view === "chan") { tipValue = fmt(v, 4); tipLabel = `Channel ${S.chan}. ${where}, token ${j}: ${tokenText(r.tokens[j])}`; }
-      else {
-        const s = tokenText(r.vocab[r.lens_ids[li][j][0]]);
-        text = s.length > chars ? s.slice(0, chars - 1) + "…" : s;
-        tipValue = `${s}  ${prob(v)}`; tipLabel = `Top prediction ${li === 0 ? "from the embeddings" : "after layer " + li}, at token ${j}: ${tokenText(r.tokens[j])}`;
-      }
-      const rect = svg("rect", { class: "cell", x: j * cw, y, width: Math.max(1, cw - (cw > 6 ? 1 : 0)), height: Math.max(1, ch - (ch > 6 ? 1 : 0)), fill: rgbCss(c) });
-      rect.addEventListener("pointermove", (e) => showTip(e, tipValue, tipLabel)); rect.addEventListener("pointerleave", hideTip);
-      rect.addEventListener("click", () => { S.pos = j; S.layerFocus = li; renderAnalysis(); });
-      g.append(rect);
-      if (text) {
-        const t = svg("text", { x: j * cw + 4, y: y + ch / 2 + 4, "font-size": 11, "font-family": "ui-monospace, Menlo, monospace",
-          fill: isDark(c) ? "#ffffff" : "#1f2a36", "pointer-events": "none" });
-        t.textContent = text; g.append(t);
-      }
-    }
-  }
-  g.append(svg("rect", { x: S.pos * cw - 1, y: -1, width: cw + 1, height: plotH + 1, fill: "none", stroke: "#b3a369", "stroke-width": 2, rx: 2 }));
-  if (S.layerFocus != null) g.append(svg("rect", { x: -1, y: plotH - (S.layerFocus + 1) * ch - 1, width: plotW + 1, height: ch + 1, fill: "none", stroke: "#b3a369", "stroke-width": 1.5, rx: 2 }));
-  g.append(svg("line", { x1: 0, x2: plotW, y1: plotH + .5, y2: plotH + .5, stroke: "#c3c2b7" }));
-  const every = cw >= 30 ? 1 : Math.max(1, Math.ceil(16 / cw));
-  for (let j = 0; j < T; j += every) {
-    const x = j * cw + cw / 2;
-    const t = svg("text", { "font-size": 11, fill: j === S.pos ? "#1f2a36" : "#5b6672", "font-weight": j === S.pos ? 600 : 400 });
-    if (cw >= 46 && view !== "pred") { t.setAttribute("x", x); t.setAttribute("y", plotH + 16); t.setAttribute("text-anchor", "middle"); }
-    else { t.setAttribute("transform", `translate(${x - 3},${plotH + 10}) rotate(55)`); }
-    t.textContent = tokenText(r.tokens[j]).slice(0, 14); g.append(t);
-  }
-  host.append(el("div", { class: "map-row" }, axis, grid));
-  // Same layout as last time: stay where the person scrolled to. New layout: center the selected token.
-  const geom = [view, cw, ch, T, L].join("|");
-  if (S.mapGeom === geom) { host.scrollLeft = keep.left; host.scrollTop = keep.top; }
-  else host.scrollLeft = Math.max(0, S.pos * cw + cw / 2 - (host.clientWidth - axisW) / 2);
-  S.mapGeom = geom;
-  const x0 = S.pos * cw, seen = host.clientWidth - axisW;
-  if (x0 < host.scrollLeft) host.scrollLeft = x0 - 8; else if (x0 + cw > host.scrollLeft + seen) host.scrollLeft = x0 + cw - seen + 8;
-  const titles = {
-    size: ["Size of each token's internal state, layer by layer",
-           `The length (L2 norm) of each token's residual-stream vector. ${L - 1} layers, embeddings at the bottom, by ${T} tokens. Click a cell to inspect it.`],
-    chan: [`Channel ${S.chan} at each layer and token`,
-           `One of the ${fmtInt.format(r.width)} numbers in the residual stream. Blue is negative, red is positive. Pick a channel above, or click a column in the full-vector view below.`],
-    pred: ["Top prediction at each layer and token", "What the model would predict next if it stopped at each layer, for every token. Darker or brighter means more confident, depending on the colors."],
-  }[view];
-  $("map-title").textContent = titles[0]; $("heat-sub").textContent = titles[1];
-  drawLegend($("heat-legend"), sc);
-  $("scroll-hint").textContent = plotW + axisW > host.clientWidth + 4 || H > host.clientHeight + 4 ? "Scroll the map to see all of it, or use Expand." : "";
-}
-
-// ---- every channel: one token at every layer (layers by channels), or one layer for every token (tokens by channels)
+// ---- fetching slices (each is cached; the server slices the stored block, the model doesn't run again)
 async function fetchSlice(url) {
   const entry = conRequest("GET", url);
   const resp = await fetch(url, { credentials: "same-origin" });
   if (!resp.ok) { const j = await resp.json().catch(() => ({})); conFinish(entry, "bad", j.error || `Request failed (${resp.status})`); throw new Error(j.error || `Request failed (${resp.status})`); }
-  const [rows, width] = resp.headers.get("X-Shape").split(",").map(Number);
-  conFinish(entry, "ok", `${rows} × ${width} values (${(rows * width * 4 / 2 ** 20).toFixed(1)} MB).`);
-  return { rows, width, data: new Float32Array(await resp.arrayBuffer()) };
+  const [rows, cols] = resp.headers.get("X-Shape").split(",").map(Number);
+  conFinish(entry, "ok", `${rows} × ${cols} values (${(rows * cols * 4 / 2 ** 20).toFixed(1)} MB).`);
+  return { rows, cols, data: new Float32Array(await resp.arrayBuffer()) };
 }
-async function loadVector() {
+const sliceKey = () => ({ layer: S.vLayer, chan: S.chan, token: S.pos })[sliceMode()];
+async function loadSlice() {
   const r = S.analysis; if (!r) return;
-  const mode = vslice();
-  $("vlayer-ctl").hidden = mode !== "layer";
-  if (mode === "layer") {
-    if (S.vLayer == null) S.vLayer = r.layers;
-    $("vlayer").max = r.layers; $("vlayer").value = S.vLayer; vlayerLabel();
-  }
-  const key = mode === "token" ? S.pos : S.vLayer, cache = mode === "token" ? S.vecCache : S.layerCache;
-  let v = cache.get(key);
-  if (!v) {
-    $("vec-status").textContent = mode === "token" ? "Loading the vectors…" : `Loading ${key === 0 ? "the embeddings" : "layer " + key}…`;
+  const mode = sliceMode(), key = sliceKey(), cache = S.cache[mode];
+  if (!cache.has(key)) {
+    $("slice-status").textContent = "Loading…";
     try {
-      v = await fetchSlice(mode === "token" ? `/api/act/vector?aid=${r.aid}&pos=${key}` : `/api/act/layer?aid=${r.aid}&layer=${key}`);
+      let v;
+      if (mode === "layer") v = await fetchSlice(`/api/act/layer?aid=${r.aid}&layer=${key}`);
+      else if (mode === "token") v = await fetchSlice(`/api/act/vector?aid=${r.aid}&pos=${key}`);
+      else {
+        const j = await api(`/api/act/channel?aid=${r.aid}&c=${key}`), R = j.values.length, C = j.values[0].length, data = new Float32Array(R * C);
+        j.values.forEach((row, i) => data.set(row, i * C));
+        v = { rows: R, cols: C, data };
+      }
       cache.set(key, v);
       if (cache.size > 24) cache.delete(cache.keys().next().value);
-    } catch (e) { if (S.analysis === r) $("vec-status").textContent = e.message; return; }
+    } catch (e) { if (S.analysis === r) $("slice-status").textContent = e.message; return; }
   }
-  if (S.analysis !== r || vslice() !== mode || (mode === "token" ? S.pos : S.vLayer) !== key) return;
-  $("vec-status").textContent = "";
-  if (mode === "token") S.vec = { ...v, pos: key }; else S.lslice = { ...v, layer: key };
-  drawVec();
+  if (S.analysis !== r || sliceMode() !== mode || sliceKey() !== key) return;
+  $("slice-status").textContent = "";
+  drawSlice();
 }
-function drawVec() {
-  const r = S.analysis, host = $("vec"); if (!r) return;
-  const mode = vslice(), v = mode === "token" ? S.vec : S.lslice;
-  if (!v || (mode === "token" ? v.pos !== S.pos : v.layer !== S.vLayer)) return;
-  const keep = { left: host.scrollLeft, top: host.scrollTop };
-  const R = v.rows, d = v.width, expanded = $("act-result").classList.contains("expanded");
-  const byToken = mode === "layer";                       // rows are tokens, top to bottom; otherwise layers, bottom to top
-  const axisW = byToken ? 130 : 50;
-  const zoom = document.querySelector("input[name=vzoom]:checked").value;
-  const avail = Math.max(200, (host.clientWidth || 900) - axisW - 4);
-  const bins = zoom === "fit" ? Math.min(d, Math.floor(avail)) : d;
-  const px = zoom === "fit" ? avail / bins : Number(zoom);
-  // Bin by the largest magnitude, so a single outlier channel stays visible when many share a pixel.
-  const B = new Float32Array(R * bins), C = new Int32Array(R * bins);
+// What the current slice is: its rows, columns, labels, and where a click goes.
+function sliceSpec() {
+  const r = S.analysis, mode = sliceMode(), v = S.cache[mode].get(sliceKey());
+  if (!v) return null;
+  const tok = (j) => tokenText(r.tokens[j]);
+  const get = (i, j) => v.data[i * v.cols + j];
+  if (mode === "layer") return {
+    mode, R: v.rows, C: v.cols, get, data: v.data, bottomUp: false, binCols: true, rowNoun: "token", colNoun: "channel",
+    rowLabel: (i) => `${i} ${tok(i).slice(0, 14)}`, colLabel: (j) => `c${j}`, corner: "token / channel",
+    selRow: S.pos, selCol: S.chan, skipRows: skipFirst() ? 1 : 0, skipCols: 0, axisW: 132,
+    title: `${S.vLayer === 0 ? "The embeddings" : "Layer " + S.vLayer}: every token's vector`,
+    sub: `Each row is one token's residual-stream vector ${S.vLayer === 0 ? "in the embeddings" : "after layer " + S.vLayer}, all ${fmtInt.format(v.cols)} channels. Move the slider to go through the layers. Click a cell to see that channel at every layer.`,
+    tip: (i, j) => `Token ${i}, ${tok(i)}. Channel ${j}. ${S.vLayer === 0 ? "In the embeddings" : "After layer " + S.vLayer}. Click to see channel ${j} at every layer.`,
+    click: (i, j) => { S.pos = i; S.chan = j; renderTokens(); drawPreds(); showSlice("chan"); },
+    csvRow: (i) => `${i}:${r.tokens[i]}`, csvCol: (j) => "c" + j, file: `layer_${layerName(S.vLayer)}`,
+  };
+  if (mode === "chan") return {
+    mode, R: v.rows, C: v.cols, get, data: v.data, bottomUp: true, binCols: false, rowNoun: "layer", colNoun: "token",
+    rowLabel: layerName, colLabel: (j) => `${j} ${tok(j).slice(0, 8)}`, corner: "layer / token",
+    selRow: S.vLayer, selCol: S.pos, skipRows: 0, skipCols: skipFirst() ? 1 : 0, axisW: 50,
+    title: `Channel ${S.chan}: its value at every layer and token`,
+    sub: `One of the ${fmtInt.format(r.width)} numbers in the residual stream, embeddings at the bottom. Click a cell to see that whole layer.`,
+    tip: (i, j) => `Channel ${S.chan}. ${i === 0 ? "In the embeddings" : "After layer " + i}, token ${j}: ${tok(j)}. Click to see ${layerWords(i)}.`,
+    click: (i, j) => { S.vLayer = i; S.pos = j; renderTokens(); drawPreds(); showSlice("layer"); },
+    csvRow: layerName, csvCol: (j) => `${j}:${r.tokens[j]}`, file: `channel_${S.chan}`,
+  };
+  return {
+    mode, R: v.rows, C: v.cols, get, data: v.data, bottomUp: true, binCols: true, rowNoun: "layer", colNoun: "channel",
+    rowLabel: layerName, colLabel: (j) => `c${j}`, corner: "layer / channel",
+    selRow: S.vLayer, selCol: S.chan, skipRows: 0, skipCols: 0, axisW: 50,
+    title: `Token ${S.pos}, ${tok(S.pos)}: its vector at every layer`,
+    sub: `Each row is this token's residual-stream vector after one layer, all ${fmtInt.format(v.cols)} channels, embeddings at the bottom. Click a cell to see that channel at every layer.`,
+    tip: (i, j) => `Channel ${j}. ${i === 0 ? "In the embeddings" : "After layer " + i}. Click to see channel ${j} at every layer.`,
+    click: (i, j) => { S.vLayer = i; S.chan = j; showSlice("chan"); },
+    csvRow: layerName, csvCol: (j) => "c" + j, file: `token_${S.pos}`,
+  };
+}
+function drawSlice() {
+  const r = S.analysis, host = $("slice"); if (!r) return;
+  const spec = sliceSpec(); if (!spec) return;
+  const num = radio("show") === "num";
+  $("zoom-ctl").hidden = num || !spec.binCols;
+  $("norm-ctl").hidden = $("scale-ctl").hidden = num;
+  $("skip-row").hidden = num || r.tokens.length < 3 || spec.mode === "token";
+  $("slice-title").textContent = spec.title; $("slice-sub").textContent = spec.sub;
+  $("dl-slice-png").disabled = num;
+  if (num) { $("slice-legend").replaceChildren(el("span", { text: "Click a number to follow it; negative numbers are blue." })); drawNumbers(host, spec); }
+  else drawHeatmap(host, spec);
+}
+// ---- heatmap: one canvas pixel per cell, scaled up. Wide channel axes are binned by the largest magnitude,
+// so a single outlier channel stays visible when many channels share a pixel.
+function drawHeatmap(host, spec) {
+  const r = S.analysis, keep = { left: host.scrollLeft, top: host.scrollTop };
+  const { R, C } = spec, expanded = $("act-result").classList.contains("expanded");
+  const zoom = radio("vzoom"), avail = Math.max(200, (host.clientWidth || 900) - spec.axisW - 4);
+  let bins, px;
+  if (spec.binCols) { bins = zoom === "fit" ? Math.min(C, Math.floor(avail)) : C; px = zoom === "fit" ? avail / bins : Number(zoom); }
+  else { bins = C; px = Math.max(expanded ? 10 : 6, Math.min(expanded ? 60 : 44, Math.floor(avail / C))); }
+  const B = new Float32Array(R * bins), K = new Int32Array(R * bins);
   for (let i = 0; i < R; i++) {
-    const base = i * d;
     for (let b = 0; b < bins; b++) {
-      const a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
-      let best = v.data[base + a], bc = a;
-      for (let c = a + 1; c < z; c++) { const x = v.data[base + c]; if (Math.abs(x) > Math.abs(best)) { best = x; bc = c; } }
-      B[i * bins + b] = best; C[i * bins + b] = bc;
+      const a = Math.floor(b * C / bins), z = Math.max(a + 1, Math.floor((b + 1) * C / bins));
+      let best = spec.get(i, a), bc = a;
+      for (let j = a + 1; j < z; j++) { const x = spec.get(i, j); if (Math.abs(x) > Math.abs(best)) { best = x; bc = j; } }
+      B[i * bins + b] = best; K[i * bins + b] = bc;
     }
   }
   const rows = []; for (let i = 0; i < R; i++) rows.push(B.subarray(i * bins, (i + 1) * bins));
-  // In a layer slice, "Each layer" means this layer gets its own range; the first token can be left out of it.
-  const sc = byToken ? makeScale(rows, true, 0, skipFirst() ? 1 : 0, true) : makeScale(rows, true, 0);
-  const room = expanded ? innerHeight - 380 : (byToken ? 560 : 420);
-  const rh = byToken ? Math.max(expanded ? 4 : 3, Math.min(16, Math.floor(room / R))) : Math.max(expanded ? 6 : 4, Math.min(expanded ? 18 : 12, Math.floor(room / R)));
+  const skipColsBinned = spec.skipCols ? Math.ceil(spec.skipCols * bins / C) : 0;
+  const sc = makeScale(rows, skipColsBinned, spec.skipRows);
+  const room = expanded ? innerHeight - 380 : 560;
+  const rh = spec.rowNoun === "token" ? Math.max(2, Math.min(16, Math.floor(room / R))) : Math.max(expanded ? 6 : 4, Math.min(expanded ? 20 : 14, Math.floor(room / R)));
   const W = Math.round(bins * px), H = R * rh, top = 6;
-  const yOf = (i) => (byToken ? i : R - 1 - i);         // canvas row for data row i
-  const cv = el("canvas", { class: "vec-canvas", width: bins, height: R, role: "img",
-    "aria-label": byToken ? `Every channel of every token at ${S.vLayer === 0 ? "the embeddings" : "layer " + S.vLayer}. Download it as CSV from the Download menu.`
-                          : `Every channel of token ${S.pos} at each of ${R - 1} layers. Download it as CSV from the Download menu.` });
+  const yOf = (i) => (spec.bottomUp ? R - 1 - i : i);
+  const cv = el("canvas", { class: "slice-canvas", width: bins, height: R, role: "img", "aria-label": `${spec.title}. Switch to Numbers to read the values, or download them as CSV.` });
   cv.style.width = W + "px"; cv.style.height = H + "px"; cv.style.marginTop = top + "px";
   const ctx = cv.getContext("2d"), img = ctx.createImageData(bins, R);
   for (let i = 0; i < R; i++) {
-    const y = yOf(i), li = byToken ? 0 : i;
-    for (let b = 0; b < bins; b++) {
-      const c = divRGB(sc.f(B[i * bins + b], li)), o = (y * bins + b) * 4;
-      img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
-    }
+    const y = yOf(i);
+    for (let b = 0; b < bins; b++) { const c = divRGB(sc.f(B[i * bins + b], i)), o = (y * bins + b) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255; }
   }
   ctx.putImageData(img, 0, 0);
   // row labels, pinned while the view scrolls sideways
-  const axis = svg("svg", { class: "axis", width: axisW, height: top + H + 28, "aria-hidden": "true" });
-  const ga = svg("g", { transform: `translate(${axisW},${top})` }); axis.append(ga);
-  const step = byToken ? Math.max(1, Math.ceil(12 / rh)) : (rh >= 12 ? 1 : rh >= 7 ? 4 : 8);
+  const tokenCols = !spec.binCols, bottomH = tokenCols ? 92 : 28;
+  const axis = svg("svg", { class: "axis", width: spec.axisW, height: top + H + bottomH, "aria-hidden": "true" });
+  const ga = svg("g", { transform: `translate(${spec.axisW},${top})` }); axis.append(ga);
+  const step = Math.max(1, Math.ceil(12 / rh));
   for (let i = 0; i < R; i += step) {
-    const y = yOf(i) * rh + rh / 2 + 4;
-    const t = svg("text", { x: -8, y, "text-anchor": "end", "font-size": byToken && rh < 11 ? 10 : 11,
-      fill: byToken && i === S.pos ? "#1f2a36" : "#5b6672", "font-weight": byToken && i === S.pos ? 600 : 400 });
-    t.textContent = byToken ? `${i} ${tokenText(r.tokens[i]).slice(0, 12)}` : layerName(i); ga.append(t);
+    const t = svg("text", { x: -8, y: yOf(i) * rh + rh / 2 + 4, "text-anchor": "end", "font-size": rh < 11 ? 10 : 11,
+      fill: i === spec.selRow ? "#1f2a36" : "#5b6672", "font-weight": i === spec.selRow ? 600 : 400 });
+    t.textContent = spec.rowLabel(i); ga.append(t);
   }
-  const ticks = svg("svg", { width: W, height: 28, "aria-hidden": "true", style: "display:block" });
-  for (const c of niceTicks(0, d - 1, Math.max(2, Math.floor(W / 90)))) {
-    const x = (c + 0.5) * W / d;
-    ticks.append(svg("line", { x1: x, x2: x, y1: 0, y2: 4, stroke: "#c3c2b7" }));
-    const t = svg("text", { x, y: 16, "text-anchor": "middle", "font-size": 11, fill: "#5b6672" }); t.textContent = fmtInt.format(c); ticks.append(t);
+  const ticks = svg("svg", { width: W, height: bottomH, "aria-hidden": "true", style: "display:block" });
+  if (tokenCols) {
+    const every = px >= 14 ? 1 : Math.ceil(14 / px);
+    for (let j = 0; j < C; j += every) {
+      const t = svg("text", { transform: `translate(${j * px + px / 2 - 3},10) rotate(55)`, "font-size": 11, fill: j === spec.selCol ? "#1f2a36" : "#5b6672", "font-weight": j === spec.selCol ? 600 : 400 });
+      t.textContent = tokenText(r.tokens[j]).slice(0, 12); ticks.append(t);
+    }
+  } else {
+    for (const c of niceTicks(0, C - 1, Math.max(2, Math.floor(W / 90)))) {
+      const x = (c + 0.5) * W / C;
+      ticks.append(svg("line", { x1: x, x2: x, y1: 0, y2: 4, stroke: "#c3c2b7" }));
+      const t = svg("text", { x, y: 16, "text-anchor": "middle", "font-size": 11, fill: "#5b6672" }); t.textContent = fmtInt.format(c); ticks.append(t);
+    }
   }
-  const plot = el("div", { class: "vec-plot" }, cv, ticks);
-  if (S.chan != null && S.chan < d) {
-    const mark = el("div", { class: "vec-mark", title: `Channel ${S.chan}` });
-    mark.style.left = ((S.chan + 0.5) * W / d - 1) + "px"; mark.style.height = H + "px"; plot.append(mark);
+  const plot = el("div", { class: "slice-plot" }, cv, ticks);
+  if (spec.selCol != null && spec.selCol < C) {
+    const m = el("div", { class: "mark-col" }); m.style.left = ((spec.selCol + 0.5) * W / C - 1) + "px"; m.style.top = top + "px"; m.style.height = H + "px"; plot.append(m);
   }
-  if (byToken && S.pos != null && S.pos < R) {
-    const rm = el("div", { class: "vec-rowmark" }); rm.style.top = (top + S.pos * rh + rh - 1) + "px"; rm.style.width = W + "px"; plot.append(rm);
+  if (spec.selRow != null && spec.selRow < R) {
+    const m = el("div", { class: "mark-row" }); m.style.top = (top + yOf(spec.selRow) * rh + rh / 2 - 1) + "px"; m.style.width = W + "px"; plot.append(m);
   }
   const at = (e) => {
     const rect = cv.getBoundingClientRect();
     const b = Math.max(0, Math.min(bins - 1, Math.floor((e.clientX - rect.left) / rect.width * bins)));
     const y = Math.max(0, Math.min(R - 1, Math.floor((e.clientY - rect.top) / rect.height * R)));
-    const i = byToken ? y : R - 1 - y;
-    return { b, i, k: i * bins + b };
+    const i = spec.bottomUp ? R - 1 - y : y;
+    return { i, b, j: K[i * bins + b], k: i * bins + b };
   };
   cv.addEventListener("pointermove", (e) => {
-    const { b, i, k } = at(e), a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
-    const ch = z - a > 1 ? `Channel ${C[k]}, the largest of ${a}–${z - 1}` : `Channel ${C[k]}`;
-    const where = byToken ? `Token ${i}, ${tokenText(r.tokens[i])}, ${S.vLayer === 0 ? "in the embeddings" : "after layer " + S.vLayer}`
-                          : (i === 0 ? "In the embeddings" : "After layer " + i);
-    showTip(e, fmt(B[k], 4), `${ch}. ${where}. Click to map this channel.`);
+    const { i, b, j, k } = at(e), a = Math.floor(b * C / bins), z = Math.max(a + 1, Math.floor((b + 1) * C / bins));
+    showTip(e, fmt(B[k], 4), (z - a > 1 ? `Largest of channels ${a}–${z - 1}. ` : "") + spec.tip(i, j));
   });
   cv.addEventListener("pointerleave", hideTip);
-  cv.addEventListener("click", (e) => {
-    const { k, i } = at(e);
-    if (byToken) { S.pos = i; S.layerFocus = S.vLayer; } else S.layerFocus = i;
-    setMapView("chan"); S.mapGeom = null; S.chan = C[k];
-    renderAnalysis();
-    const mt = $("map-title").getBoundingClientRect(); if (mt.top < 60 || mt.top > innerHeight) $("map-title").scrollIntoView({ block: "start", behavior: "smooth" });
-  });
+  cv.addEventListener("click", (e) => { const { i, j } = at(e); hideTip(); spec.click(i, j); });
   host.replaceChildren(el("div", { class: "map-row" }, axis, plot));
-  const geom = [mode, zoom, bins, px, R, rh].join("|");
-  if (S.vecGeom === geom) { host.scrollLeft = keep.left; host.scrollTop = keep.top; }
-  S.vecGeom = geom;
-  if (byToken) {
-    $("vec-title").textContent = `Every channel at ${S.vLayer === 0 ? "the embeddings" : "layer " + S.vLayer}, for each token`;
-    $("vec-sub").textContent = `Each row is one token's residual-stream vector, all ${fmtInt.format(d)} channels, ${S.vLayer === 0 ? "in the embeddings" : "after layer " + S.vLayer}. ` +
-      "Use the slider or the arrows to step through the layers." +
-      (bins < d ? ` Each column covers ${nf(1).format(d / bins)} channels and shows the largest of them.` : "") +
-      " Click a cell to pick that token and map that channel; gold lines mark the current ones.";
-  } else {
-    $("vec-title").replaceChildren(document.createTextNode(`Every channel at token ${S.pos}, `), el("code", { text: tokenText(r.tokens[S.pos]) }));
-    $("vec-sub").textContent = `Each row is the token's full residual-stream vector after one layer, all ${fmtInt.format(d)} channels, with the embeddings at the bottom.` +
-      (bins < d ? ` Each column covers ${nf(1).format(d / bins)} channels and shows the largest of them, so outliers stay visible.` : "") +
-      " Click a column to map that channel across all tokens. The gold line marks the channel in the map.";
-  }
-  drawLegend($("vec-legend"), byToken ? { ...sc, mode: "global" } : sc);
+  const geom = [spec.mode, zoom, bins, px, R, rh].join("|");
+  if (S.sliceGeom === geom) { host.scrollLeft = keep.left; host.scrollTop = keep.top; }
+  else if (spec.selCol != null) host.scrollLeft = Math.max(0, (spec.selCol + 0.5) * W / C - (host.clientWidth - spec.axisW) / 2);
+  S.sliceGeom = geom;
+  drawLegend($("slice-legend"), sc, spec.rowNoun);
 }
-
-// ---- prediction table
-function drawLens() {
-  const r = S.analysis, pos = S.pos, tbl = $("lens"); tbl.replaceChildren();
-  $("lens-title").replaceChildren(document.createTextNode("Prediction after token " + pos + ", "), el("code", { text: tokenText(r.tokens[pos]) }), document.createTextNode(", at each layer"));
-  const warn = $("lens-warn");
-  warn.hidden = r.lens_matches_output;
-  warn.textContent = r.lens_matches_output ? "" : "The top row doesn't exactly match the model's real output for every token, so this model applies extra steps the readout doesn't copy. Treat the other rows as approximate.";
-  const k = r.lens_ids[0][0].length;
-  const head = el("tr", {}, el("th", { text: "Layer" }));
-  ["1st", "2nd", "3rd", "4th", "5th"].slice(0, k).forEach((h) => head.append(el("th", { text: h })));
+// ---- numbers: a grid that only draws the cells in view, so even 512 tokens by 5,120 channels stays fast
+function drawNumbers(host, spec) {
+  const cw = 82, rh = 24, headH = 26, labW = spec.rowNoun === "token" ? 150 : 60;
+  const { R, C } = spec;
+  const inner = el("div", { class: "vt" }); inner.style.width = (labW + C * cw) + "px"; inner.style.height = (headH + R * rh) + "px";
+  host.replaceChildren(inner);
+  const rowAt = (k) => (spec.bottomUp ? R - 1 - k : k), kOf = (i) => (spec.bottomUp ? R - 1 - i : i);
+  const place = (n, x, y, w, h) => { n.style.left = x + "px"; n.style.top = y + "px"; n.style.width = w + "px"; n.style.height = h + "px"; return n; };
+  function paint() {
+    const x0 = host.scrollLeft, y0 = host.scrollTop, W = host.clientWidth, H = host.clientHeight;
+    const c0 = Math.max(0, Math.floor((x0) / cw) - 1), c1 = Math.min(C, Math.ceil((x0 + W) / cw) + 1);
+    const k0 = Math.max(0, Math.floor(y0 / rh) - 1), k1 = Math.min(R, Math.ceil((y0 + H) / rh) + 1);
+    const frag = document.createDocumentFragment();
+    for (let k = k0; k < k1; k++) {
+      const i = rowAt(k), y = headH + k * rh;
+      for (let j = c0; j < c1; j++) {
+        const v = spec.get(i, j);
+        const d = el("div", { class: "vc" + (i === spec.selRow || j === spec.selCol ? " sel" : "") + (v < 0 ? " neg" : ""), "data-i": i, "data-j": j, text: fmt(v, 4) });
+        frag.append(place(d, labW + j * cw, y, cw, rh));
+      }
+      frag.append(place(el("div", { class: "vr" + (i === spec.selRow ? " sel" : ""), text: spec.rowLabel(i), title: spec.rowLabel(i) }), x0, y, labW, rh));
+    }
+    for (let j = c0; j < c1; j++) frag.append(place(el("div", { class: "vh" + (j === spec.selCol ? " sel" : ""), text: spec.colLabel(j), title: spec.colLabel(j) }), labW + j * cw, y0, cw, headH));
+    frag.append(place(el("div", { class: "vh corner", text: spec.corner }), x0, y0, labW, headH));
+    inner.replaceChildren(frag);
+  }
+  let pending = false;
+  host.onscroll = () => { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; paint(); }); } };
+  inner.onclick = (e) => { const t = e.target.closest(".vc"); if (t) spec.click(Number(t.dataset.i), Number(t.dataset.j)); };
+  // start with the selected cell in view
+  const geom = ["num", spec.mode, R, C].join("|");
+  if (S.sliceGeom !== geom) {
+    if (spec.selCol != null) host.scrollLeft = Math.max(0, labW + spec.selCol * cw - host.clientWidth / 2);
+    if (spec.selRow != null) host.scrollTop = Math.max(0, kOf(spec.selRow) * rh - host.clientHeight / 2);
+  }
+  S.sliceGeom = geom;
+  paint();
+}
+// ---- predictions: after each token, the five likeliest next tokens and how likely the real next token was
+const ordinal = (n) => fmtInt.format(n) + (n % 10 === 1 && n % 100 !== 11 ? "st" : n % 10 === 2 && n % 100 !== 12 ? "nd" : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th");
+function drawPreds() {
+  const r = S.analysis, P = r.predictions, T = r.tokens.length, tbl = $("preds"); tbl.replaceChildren();
+  const replyOnly = r.n_prompt != null && $("pred-reply-only").checked;
+  $("pred-sub").textContent = r.n_prompt != null
+    ? "For each token the model wrote: how likely it found that token, and the five tokens it thought likeliest at that point. At temperature 0 it always takes the 1st."
+    : "After each token: the five tokens the model thought likeliest to come next, and how likely it found the token that actually came next.";
+  const head = el("tr", {}, el("th", { text: "After token" }), el("th", { text: "Came next" }));
+  ["1st", "2nd", "3rd", "4th", "5th"].forEach((h) => head.append(el("th", { text: h })));
   tbl.append(el("thead", {}, head));
   const tb = el("tbody");
-  for (let li = r.lens_ids.length - 1; li >= 0; li--) {
-    const ids = r.lens_ids[li][pos], ps = r.lens_p[li][pos];
-    const tr = el("tr", { class: (li === S.layerFocus ? "focus " : "") + (li === r.lens_ids.length - 1 ? "out" : "") },
-      el("td", { class: "layer", text: li === 0 ? "emb" : (li === r.lens_ids.length - 1 ? `${li} (output)` : String(li)) }));
-    ids.forEach((id, i) => {
-      const bar = el("span", { class: "pbar" }, el("span")); bar.firstChild.style.width = (100 * ps[i]).toFixed(1) + "%";
-      const s = tokenText(r.vocab[id]);
-      tr.append(el("td", {}, el("span", { class: "t", text: s, title: s }), el("span", { class: "pr" }, bar, el("span", { class: "pv", text: prob(ps[i]) }))));
-    });
+  const pcell = (id, p, hit) => {
+    const bar = el("span", { class: "pbar" }, el("span")); bar.firstChild.style.width = (100 * p).toFixed(1) + "%";
+    const s = tokenText(r.vocab[id] ?? `<id:${id}>`);
+    return el("td", { class: hit ? "hit" : "" }, el("span", { class: "t", text: s, title: s }), el("span", { class: "pr" }, bar, el("span", { class: "pv", text: prob(p) })));
+  };
+  for (let j = replyOnly ? r.n_prompt - 1 : 0; j < T; j++) {
+    const nextId = j + 1 < T ? r.ids[j + 1] : null;
+    const tr = el("tr", { class: j === S.pos ? "focus" : "" }, el("td", { class: "pos" }, el("span", { class: "t", text: `${j} ${tokenText(r.tokens[j])}` })));
+    if (nextId != null) {
+      const rank = P.next_rank[j], np = P.next_p[j];
+      const bar = el("span", { class: "pbar" }, el("span")); bar.firstChild.style.width = (100 * np).toFixed(1) + "%";
+      tr.append(el("td", { class: "next" }, el("span", { class: "t", text: tokenText(r.tokens[j + 1]) }),
+        el("span", { class: "pr" }, bar, el("span", { class: "pv", text: prob(np) })),
+        el("span", { class: "rank" + (rank > 5 ? " low" : ""), text: rank === 1 ? "the model's 1st choice" : `the model's ${ordinal(rank)} choice` })));
+    } else tr.append(el("td", { class: "next" }, el("span", { class: "hint", text: "(end of the text)" })));
+    P.top_ids[j].forEach((id, k) => tr.append(pcell(id, P.top_p[j][k], id === nextId)));
+    tr.addEventListener("click", () => selectToken(j));
     tb.append(tr);
   }
   tbl.append(tb);
   const f = tbl.querySelector("tr.focus"); if (f) scrollWithin(tbl.parentElement, f);
 }
-function drawNormTable() {
-  const r = S.analysis, host = $("norm-table"), t = el("table", { class: "plain" });
-  const head = el("tr", {}, el("th", { text: "Layer" }));
-  r.tokens.forEach((tok, j) => head.append(el("th", { text: `${j}: ${tokenText(tok).slice(0, 10)}` })));
-  t.append(el("thead", {}, head));
-  const tb = el("tbody");
-  for (let li = r.norms.length - 1; li >= 0; li--) {
-    const tr = el("tr", {}, el("th", { text: layerName(li) }));
-    r.norms[li].forEach((v) => tr.append(el("td", { text: fmt(v, 4) })));
-    tb.append(tr);
-  }
-  t.append(tb); host.replaceChildren(t);
-}
+$("pred-reply-only").addEventListener("change", drawPreds);
 // ---- expand to full screen
 function setExpanded(on) {
   $("act-result").classList.toggle("expanded", on);
   $("act-backdrop").hidden = !on;
   $("act-expand").textContent = on ? "Close" : "Expand";
   document.body.style.overflow = on ? "hidden" : "";
-  S.mapGeom = S.vecGeom = null; drawHeat(); drawVec();
+  S.sliceGeom = null; drawSlice();
 }
 $("act-expand").addEventListener("click", () => setExpanded(!$("act-result").classList.contains("expanded")));
 $("act-backdrop").addEventListener("click", () => setExpanded(false));
 document.addEventListener("keydown", (e) => { if (e.key === "Escape" && $("act-result").classList.contains("expanded")) setExpanded(false); });
-// ---- downloads (made in the browser from the results already on the page)
+// ---- downloads (made in the browser from what's already on the page)
 function csvCell(v) { const s = String(v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
 const toCsv = (rows) => rows.map((x) => x.map(csvCell).join(",")).join("\n") + "\n";
 function fileStem() {
@@ -1834,73 +1809,40 @@ function saveBlob(name, blob) {
 const saveText = (name, text, type) => saveBlob(name, new Blob([text], { type }));
 function download(kind) {
   const r = S.analysis; if (!r) return;
-  const stem = fileStem();
-  if (kind === "norms") {
-    const rows = [["layer", ...r.tokens.map((t, j) => `${j}:${t}`)]];
-    r.norms.forEach((row, li) => rows.push([layerName(li), ...row]));
-    saveText(stem + "_state_sizes.csv", toCsv(rows), "text/csv");
-  } else if (kind === "chan") {
-    const V = S.chanCache.get(S.chan); if (!V) return;
-    const rows = [["layer", ...r.tokens.map((t, j) => `${j}:${t}`)]];
-    V.forEach((row, li) => rows.push([layerName(li), ...row]));
-    saveText(`${stem}_channel_${S.chan}.csv`, toCsv(rows), "text/csv");
-  } else if (kind === "vec") {
-    const v = S.vec; if (!v) return;
-    const rows = [["layer", ...Array.from({ length: v.width }, (_, c) => "c" + c)]];
-    for (let li = 0; li < v.rows; li++) rows.push([layerName(li), ...Array.from(v.data.subarray(li * v.width, (li + 1) * v.width), (x) => +x.toPrecision(6))]);
-    saveText(`${stem}_token_${v.pos}_all_channels.csv`, toCsv(rows), "text/csv");
-  } else if (kind === "lslice") {
-    const v = S.lslice; if (!v) return;
-    const rows = [["token", ...Array.from({ length: v.width }, (_, c) => "c" + c)]];
-    for (let j = 0; j < v.rows; j++) rows.push([`${j}:${r.tokens[j]}`, ...Array.from(v.data.subarray(j * v.width, (j + 1) * v.width), (x) => +x.toPrecision(6))]);
-    saveText(`${stem}_layer_${layerName(v.layer)}_all_channels.csv`, toCsv(rows), "text/csv");
-  } else if (kind === "lens") {
-    const rows = [["layer", "position", "input_token", "rank", "token_id", "token", "probability"]];
-    r.lens_ids.forEach((byPos, li) => byPos.forEach((ids, j) => ids.forEach((id, k) =>
-      rows.push([layerName(li), j, r.tokens[j], k + 1, id, r.vocab[id], r.lens_p[li][j][k]]))));
+  const stem = fileStem(), spec = sliceSpec();
+  if (kind === "slice-csv" && spec) {
+    const rows = [[spec.corner, ...Array.from({ length: spec.C }, (_, j) => spec.csvCol(j))]];
+    for (let i = 0; i < spec.R; i++) rows.push([spec.csvRow(i), ...Array.from(spec.data.subarray(i * spec.C, (i + 1) * spec.C), (x) => +x.toPrecision(6))]);
+    saveText(`${stem}_${spec.file}.csv`, toCsv(rows), "text/csv");
+  } else if (kind === "slice-png" && spec) {
+    const cv = $("slice").querySelector("canvas"); if (!cv) return;
+    const sx = Math.max(1, Math.ceil(1200 / cv.width)), sy = Math.max(2, Math.ceil(600 / cv.height));
+    const big = el("canvas", { width: cv.width * sx, height: cv.height * sy });
+    const bx = big.getContext("2d"); bx.imageSmoothingEnabled = false; bx.drawImage(cv, 0, 0, big.width, big.height);
+    big.toBlob((b) => b && saveBlob(`${stem}_${spec.file}.png`, b), "image/png");
+  } else if (kind === "preds-csv") {
+    const P = r.predictions, rows = [["position", "token", "next_token", "next_probability", "next_rank",
+      ...[1, 2, 3, 4, 5].flatMap((k) => [`top${k}_token`, `top${k}_probability`]), "in_reply"]];
+    for (let j = 0; j < r.tokens.length; j++) {
+      rows.push([j, r.tokens[j], j + 1 < r.tokens.length ? r.tokens[j + 1] : "", j + 1 < r.tokens.length ? P.next_p[j] : "", j + 1 < r.tokens.length ? P.next_rank[j] : "",
+        ...P.top_ids[j].flatMap((id, k) => [r.vocab[id], P.top_p[j][k]]), r.n_prompt != null && j + 1 >= r.n_prompt ? 1 : 0]);
+    }
     saveText(stem + "_predictions.csv", toCsv(rows), "text/csv");
   } else if (kind === "json") {
-    const p = S.analysisParams || {};
-    const out = { model: r.model, prompt: p.prompt, chat: r.chat, system: p.system || "", thinking: !!p.thinking, tokens: r.tokens, token_ids: r.ids,
-      layers: r.layers, width: r.width, state_sizes: r.norms, logit_lens_matches_output: r.lens_matches_output,
-      predictions: r.lens_ids.map((byPos, li) => byPos.map((ids, j) => ids.map((id, k) => ({ token_id: id, token: r.vocab[id], probability: r.lens_p[li][j][k] })))),
+    const p = S.analysisParams || {}, P = r.predictions;
+    const out = { model: r.model, prompt: p.prompt, chat: r.chat, system: p.system || "", thinking: !!p.thinking, from_generation: !!r.from_generation,
+      tokens: r.tokens, token_ids: r.ids, prompt_tokens: r.n_prompt, layers: r.layers, width: r.width,
+      predictions: r.tokens.map((t, j) => ({ position: j, token: t, next_token: r.tokens[j + 1] ?? null, next_probability: P.next_p[j] ?? null, next_rank: P.next_rank[j] ?? null,
+        top5: P.top_ids[j].map((id, k) => ({ token_id: id, token: r.vocab[id], probability: P.top_p[j][k] })) })),
       largest_channels: r.top_channels, largest_channels_without_first_token: r.top_channels_skip,
-      notes: "state_sizes[layer][token] is the L2 norm of the residual stream; layer 0 is the embeddings. predictions[layer][token] is the logit-lens top 5. For the full vectors, use Save activations." };
+      notes: "predictions[j] is what the model predicted after token j. For the activations themselves, download a slice as CSV or use Save activations." };
     saveText(stem + "_analysis.json", JSON.stringify(out, null, 1), "application/json");
-  } else if (kind === "svg") {
-    const row = $("heat").querySelector(".map-row"); if (!row) return;
-    const [axis, grid] = row.querySelectorAll("svg");
-    const aw = +axis.getAttribute("width"), gw = +grid.getAttribute("width"), h = +grid.getAttribute("height");
-    const out = svg("svg", { xmlns: "http://www.w3.org/2000/svg", width: aw + gw, height: h + 26, "font-family": "Avenir Next, Segoe UI, sans-serif" });
-    out.append(svg("rect", { width: aw + gw, height: h + 26, fill: "#ffffff" }));
-    const title = svg("text", { x: 8, y: 17, "font-size": 13, fill: "#1f2a36", "font-weight": 600 });
-    title.textContent = `${r.model}: ${$("map-title").textContent}`; out.append(title);
-    const ga = svg("g", { transform: "translate(0,26)" }); ga.append(...[...axis.childNodes].map((n) => n.cloneNode(true)));
-    const gg = svg("g", { transform: `translate(${aw},26)` }); gg.append(...[...grid.childNodes].map((n) => n.cloneNode(true)));
-    out.append(ga, gg);
-    saveText(stem + "_map.svg", new XMLSerializer().serializeToString(out), "image/svg+xml");
-  } else if (kind === "vecpng") {
-    const cv = $("vec").querySelector("canvas"); if (!cv) return;
-    const scale = Math.max(1, Math.ceil(1200 / cv.width)), rh = Math.max(8, Math.ceil(600 / cv.height));
-    const big = el("canvas", { width: cv.width * scale, height: cv.height * rh });
-    const bx = big.getContext("2d"); bx.imageSmoothingEnabled = false; bx.drawImage(cv, 0, 0, big.width, big.height);
-    const what = vslice() === "layer" ? `layer_${layerName(S.vLayer)}` : `token_${S.pos}`;
-    big.toBlob((b) => b && saveBlob(`${stem}_${what}_all_channels.png`, b), "image/png");
   }
   $("dl-menu").open = false;
 }
 document.querySelectorAll("[data-dl]").forEach((b) => b.addEventListener("click", () => download(b.dataset.dl)));
-$("dl-menu").addEventListener("toggle", () => {
-  $("dl-chan").disabled = !(S.chanCache && S.chanCache.has(S.chan));
-  $("dl-chan").textContent = `Channel ${S.chan ?? ""} as CSV (layers by tokens)`;
-  $("dl-vec").textContent = `Every channel at token ${S.pos ?? ""} as CSV (layers by channels)`;
-  $("dl-vec").disabled = !S.vec;
-  $("dl-lslice").textContent = `Every channel at ${S.vLayer === 0 ? "the embeddings" : "layer " + (S.vLayer ?? "")} as CSV (tokens by channels)`;
-  $("dl-lslice").disabled = !S.lslice;
-  $("dl-menu").querySelector("[data-dl=vecpng]").textContent = vslice() === "layer" ? "The layer view as a PNG image" : "The full-vector view as a PNG image";
-});
 document.addEventListener("click", (e) => { if (!$("dl-menu").contains(e.target)) $("dl-menu").open = false; });
-addEventListener("resize", () => { if (S.analysis && currentTab() === "p-act") { drawHeat(); S.vecGeom = null; drawVec(); } });
+addEventListener("resize", () => { if (S.analysis && currentTab() === "p-act") { S.sliceGeom = null; drawSlice(); } });
 
 // ------------------------------------------------------------------ weights and the model card
 const TOWER_RE = /vision|visual|audio|image|multi_modal|mm_/i;

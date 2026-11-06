@@ -4,7 +4,7 @@ Probe Bench runs open-weight language models on the GPU cluster of Georgia Tech'
 
 - download models from Hugging Face, or load your own checkpoints from the cluster
 - generate text, with or without the model's chat format, and see the exact tokens the model receives
-- see every layer's activations for a prompt: state sizes, any single channel, the full vector for a token, and what the model would predict at each layer (the "logit lens")
+- look at a prompt's activations, or a prompt plus the model's reply, one slice at a time (a layer, a channel or a token), as a heatmap or as numbers, and see what the model predicted at every token
 - download the results as CSV, JSON or images, or save the full activations to a file to use in your own code
 - read the model card and browse the weights layer by layer, with statistics, histograms, singular values and comparisons across layers
 - see what's using GPU memory, including the KV cache from your last run
@@ -67,7 +67,7 @@ When you're done, click **End session**. A session that goes unused for 30 minut
 
 - **Model panel.** Pick a downloaded model and click Load model. A progress bar shows how much of it is on the GPU. To load a fine-tuned checkpoint, use "Load from a folder on the cluster" and give the folder's full path.
 - **Generate.** Turn on Chat format for instruction-tuned models (names ending in `-it` or `Instruct`). The system prompt and Allow thinking appear only with Chat format on, since only the chat template uses them. Open "Exact input to the model" to see the full text the model receives, with the template's special tokens highlighted. Temperature 0 always picks the most likely next token.
-- **Activations.** Analyze a prompt, then switch the map between the size of each token's internal state, a single channel of the residual stream (start from the list of largest channels), and the top prediction at each layer. Below the map, the full activations are shown as a heatmap: either one token's vector at every layer, or every token's vector at one layer, with a slider to step through the layers. Click a column to map that channel. Choose the colors, a linear or log scale, and one color range for the whole map or one per layer. Expand opens the results full screen, and Download saves the map, the numbers and the predictions. Save activations writes a file to `~/probebench/exports/` on the cluster:
+- **Activations.** After you generate, click "Analyze this reply" (or just switch to Activations) and the prompt carries over, with the model's reply included. Analyze keeps the residual stream: a block of layers by tokens by channels. You look at it one slice at a time: **One layer** (every token's vector at that layer, with a slider to move through the layers), **One channel** (that channel at every layer and token; click any cell in a layer to get here), or **One token** (its vector at every layer). Each slice shows as a heatmap or as the numbers themselves. **Predictions** lists, for each token, the token that came next with its probability and rank, and the five tokens the model thought likeliest. Download saves the current slice as CSV or PNG, the predictions as CSV, or a JSON summary. Save activations writes a file to `~/probebench/exports/` on the cluster:
 
   ```python
   import torch
