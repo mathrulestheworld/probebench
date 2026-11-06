@@ -17,14 +17,19 @@ import hmac
 import json
 import os
 import random
+import base64
+import fcntl
+import pty
 import re
 import secrets
 import shlex
 import signal
 import socket
 import subprocess
+import struct
 import sys
 import tarfile
+import termios
 import io
 import threading
 import time
@@ -48,6 +53,23 @@ RLAB = "~/probebench"
 LABCTL = f"bash {RLAB}/app/labctl.sh"
 GATEWAYS = {"castle": "castle.isye.gatech.edu", "keep": "keep.isye.gatech.edu"}
 ACCOUNT_FORM = "https://webforms.isye.gatech.edu/other-forms/isye-unix-account-request"
+# labctl commands Probe Bench runs over and over to watch jobs; the command list hides them unless asked
+ROUTINE = {"build-progress", "container-status", "download-progress", "job-state", "queue-info", "session-state",
+           "summary", "token", "why", "check-port", "log", "job-log", "list", "status", "models", "evictions"}
+VENDOR = {"xterm.js": "application/javascript", "addon-fit.js": "application/javascript", "xterm.css": "text/css"}
+IMAGE_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp"}
+
+
+def remote_path(path):
+    """A path for the cluster's shell: ~ and ~/x expand to the home folder, everything else is quoted."""
+    path = (path or "~").strip() or "~"
+    if path == "~":
+        return '"$HOME"'
+    if path.startswith("~/"):
+        return '"$HOME"/' + shlex.quote(path[2:]) if path[2:] else '"$HOME"'
+    if not path.startswith("/"):
+        return '"$HOME"/' + shlex.quote(path)
+    return shlex.quote(path)
 
 SIZES = {
     "standard": {"gpu_mb": 30000, "mem_gb": 32, "title": "Standard",
@@ -187,6 +209,110 @@ class Session:
                 "now": now()}
 
 
+# --------------------------------------------------------------------------- terminal
+
+class Term:
+    """An interactive shell on compute01 (ssh probebench-submit in a pseudo-terminal) for the page's terminal.
+
+    Output goes into a buffer that the page streams from, so a reload picks up where it left off."""
+    MAX = 512 * 1024
+
+    def __init__(self):
+        self.cond = threading.Condition()
+        self.pid = self.fd = None
+        self.buf = bytearray()
+        self.base = 0           # stream position of buf[0]
+        self.alive = False
+        self.started = None
+
+    @property
+    def end(self):
+        return self.base + len(self.buf)
+
+    def append(self, data):
+        with self.cond:
+            self.buf += data
+            if len(self.buf) > self.MAX:
+                cut = len(self.buf) - self.MAX
+                del self.buf[:cut]
+                self.base += cut
+            self.cond.notify_all()
+
+    def start(self, cols, rows):
+        with self.cond:
+            if self.alive:
+                return
+            env = {k: v for k, v in os.environ.items() if not k.startswith("SSH_ASKPASS") and k != "DISPLAY"}
+            env["TERM"] = "xterm-256color"
+            self.append(b"\x1b[2m[Probe Bench] ssh probebench-submit\x1b[0m\r\n")
+            pid, fd = pty.fork()
+            if pid == 0:                                   # child: becomes ssh, with this terminal as its tty
+                try:
+                    os.execvpe("ssh", ["ssh", "-tt", "-o", "ConnectTimeout=25", SUBMIT], env)
+                finally:
+                    os._exit(127)
+            self.pid, self.fd, self.alive, self.started = pid, fd, True, now()
+        self.resize(cols, rows)
+        threading.Thread(target=self.reader, args=(pid, fd), daemon=True).start()
+
+    def reader(self, pid, fd):
+        while True:
+            try:
+                data = os.read(fd, 65536)
+            except OSError:
+                data = b""
+            if not data:
+                break
+            self.append(data)
+        try:
+            os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        with self.cond:
+            if self.pid == pid:
+                self.alive, self.fd = False, None
+        self.append(b"\r\n\x1b[2m[Probe Bench] The connection closed. Click Reconnect to open a new one.\x1b[0m\r\n")
+
+    def write(self, text):
+        fd = self.fd
+        if not self.alive or fd is None:
+            raise Problem("The terminal isn't connected. Click Reconnect.")
+        data = text.encode()
+        while data:
+            n = os.write(fd, data)
+            data = data[n:]
+
+    def resize(self, cols, rows):
+        fd = self.fd
+        if fd is None:
+            return
+        cols, rows = max(20, min(500, int(cols or 100))), max(5, min(200, int(rows or 30)))
+        try:
+            fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+        except OSError:
+            pass
+
+    def stop(self):
+        pid = self.pid
+        if self.alive and pid:
+            for sig in (signal.SIGHUP, signal.SIGTERM):
+                try:
+                    os.kill(pid, sig)
+                except ProcessLookupError:
+                    break
+
+    def read_from(self, pos, timeout):
+        with self.cond:
+            if pos >= self.end:
+                self.cond.wait(timeout)
+            pos = max(pos, self.base)
+            return pos, bytes(self.buf[pos - self.base:]), self.end, self.alive
+
+
 # --------------------------------------------------------------------------- the app
 
 class App:
@@ -207,6 +333,9 @@ class App:
         self.signin_stderr = deque(maxlen=60)
         self.httpd = None
         self.quitting = False
+        self.cmds = deque(maxlen=300)    # every command Probe Bench runs on the cluster, for the page's command list
+        self.cmd_seq = 0
+        self.term = Term()
 
     # ---- logging and state
     def note(self, msg):
@@ -270,16 +399,31 @@ class App:
         return marker.exists()
 
     # ---- ssh
-    def ssh(self, host, cmd, stdin=None, timeout=90, check=True):
+    def record(self, host, cmd, rc=None, out="", secs=None, running=False, routine=None):
+        words = cmd.split()
+        sub = words[2] if cmd.startswith(LABCTL + " ") and len(words) > 2 else ""
+        if routine is None:
+            routine = sub in ROUTINE or cmd.startswith("condor_status")
+        with self.lock:
+            self.cmd_seq += 1
+            entry = {"id": self.cmd_seq, "at": now(), "cmd": f"ssh {host} {shlex.quote(cmd)}" if cmd else f"ssh {host}",
+                     "rc": rc, "secs": secs, "out": out[-8000:], "routine": routine, "running": running}
+            self.cmds.append(entry)
+        return entry
+
+    def ssh(self, host, cmd, stdin=None, timeout=90, check=True, routine=None):
         args = ["ssh"]
         if stdin is None:
             args.append("-n")
         args += ["-o", "BatchMode=yes", "-o", "ConnectTimeout=25", host, cmd]
+        t0 = now()
         try:
             p = subprocess.run(args, input=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
         except subprocess.TimeoutExpired:
+            self.record(host, cmd, rc="timeout", out=f"No answer after {timeout} s.", secs=now() - t0)
             raise Problem("The cluster didn't answer in time. Check your internet connection and try again.")
         out, err = p.stdout.decode(errors="replace"), p.stderr.decode(errors="replace")
+        self.record(host, cmd, rc=p.returncode, out=out + err, secs=now() - t0, routine=routine)
         if check and p.returncode != 0:
             if p.returncode == 255:
                 self.refresh_signin()
@@ -547,8 +691,9 @@ class App:
             mins = int((now() - start) // 60)
             el = f"{mins} min" if mins else "under a minute"
             if st == "IDLE":
-                report({"fraction": 0.0, "text": f"Waiting for the cluster to start job {jid} on a free CPU "
-                        f"(waiting {el}). Jobs that don't need a GPU usually start within a minute or two."})
+                ev = self.eviction_note(jid) if now() - start > 45 else ""
+                report({"fraction": 0.0, "text": ev or (f"Waiting for the cluster to start job {jid} on a free CPU "
+                        f"(waiting {el}). Jobs that don't need a GPU usually start within a minute or two.")})
             elif st == "RUNNING":
                 msg = f"running (job {jid}, {el} so far)"
                 if kind == "build":
@@ -580,6 +725,71 @@ class App:
             elif st == "REMOVED":
                 raise Problem(f"The {kind} job was removed.")
             time.sleep(8)
+
+    # ---- files on the cluster (read-only browsing for the page's Files tab)
+    def need_signin(self):
+        if not read_conf()["ISYE_USER"]:
+            raise Problem("Set your Georgia Tech username first.")
+        if not self.refresh_signin():
+            raise Problem("Sign in to the cluster to browse your files.")
+
+    def list_dir(self, path):
+        self.need_signin()
+        msg = "ERR That folder doesn't exist, or you can't open it."
+        cmd = (f"cd -- {remote_path(path)} 2>/dev/null || {{ echo \"{msg}\"; exit 0; }}; "
+               "pwd -P; printf '%s\\n' \"$HOME\"; "
+               "find . -mindepth 1 -maxdepth 1 -printf '%y\\t%Y\\t%s\\t%T@\\t%f\\0' 2>/dev/null | head -c 4000000")
+        out = self.ssh(SUBMIT, cmd, timeout=60, check=False, routine=True)
+        if out.startswith("ERR "):
+            raise Problem(out[4:].strip())
+        lines = out.split("\n", 2)
+        if len(lines) < 3:
+            raise Problem("The cluster didn't send a folder listing. Check the Commands tab for details.")
+        cwd, home, rest = lines
+        entries = []
+        for rec in rest.split("\0"):
+            parts = rec.split("\t", 4)
+            if len(parts) != 5:
+                continue
+            kind, target, size, mtime, name = parts
+            is_dir = kind == "d" or (kind == "l" and target == "d")
+            entries.append({"name": name, "dir": is_dir, "link": kind == "l", "size": int(size) if size.isdigit() else 0,
+                            "mtime": float(mtime) if mtime.replace(".", "", 1).isdigit() else 0})
+        entries.sort(key=lambda e: (not e["dir"], e["name"].lower()))
+        return {"path": cwd, "home": home, "entries": entries[:5000], "total": len(entries)}
+
+    def read_file(self, path, end=False, nbytes=262144):
+        self.need_signin()
+        nbytes = max(1024, min(int(nbytes or 262144), 4 * 2 ** 20))
+        part = f"tail -c {nbytes}" if end else f"head -c {nbytes}"
+        cmd = (f"f={remote_path(path)}; [ -f \"$f\" ] || {{ echo \"ERR That isn't a file.\"; exit 0; }}; "
+               "[ -r \"$f\" ] || { echo \"ERR You can't read that file.\"; exit 0; }; "
+               f"stat -L -c '%s %Y' -- \"$f\"; {part} -- \"$f\"")
+        out = self.ssh(SUBMIT, cmd, timeout=90, check=False, routine=True)
+        if out.startswith("ERR "):
+            raise Problem(out[4:].strip())
+        head, _, body = out.partition("\n")
+        try:
+            size, mtime = (int(x) for x in head.split())
+        except ValueError:
+            raise Problem("The cluster didn't send the file. Check the Commands tab for details.")
+        binary = "\x00" in body[:8192]
+        return {"path": path, "size": size, "mtime": mtime, "end": end, "shown": len(body.encode()),
+                "partial": size > nbytes, "binary": binary, "text": "" if binary else body}
+
+    def eviction_note(self, jid):
+        """A job that keeps getting evicted the moment it starts looks idle; say so plainly."""
+        try:
+            n, _, host = self.labctl("evictions", jid).strip().partition(" ")
+            n = int(n)
+        except (Problem, ValueError):
+            return ""
+        if n < 3:
+            return ""
+        where = f", most recently on {host.split('.')[0]}" if host and host != "-" else ""
+        return (f"Job {jid} keeps being stopped as soon as it starts ({n} times{where}), so it looks idle. "
+                "This is a problem on the cluster side, not a slow install. Open Terminal and click "
+                "\"Why is my job waiting?\", or send the job's log to helpdesk@isye.gatech.edu.")
 
     # ---- cluster info
     def refresh_cluster(self):
@@ -730,6 +940,11 @@ class App:
                 if waited > 120 and not hinted:
                     hinted = True
                     sess.detail = self.labctl("why", sess.sid).strip()
+                if waited > 45 and sess.jid and now() - getattr(sess, "_ev_checked", 0) > 30:
+                    sess._ev_checked = now()
+                    ev = self.eviction_note(sess.jid)
+                    if ev:
+                        sess.detail = ev
             elif st.startswith("STARTING"):
                 sess.state = "starting"
                 sess.set_phase("start")
@@ -761,6 +976,8 @@ class App:
                     "-L", f"127.0.0.1:{sess.lport}:127.0.0.1:{rport}", SUBMIT,
                     f"condor_ssh_to_job -ssh 'ssh -N -o ExitOnForwardFailure=yes -L 127.0.0.1:{rport}:127.0.0.1:{sess.port}' {sess.jid}"]
         sess.tunnel = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+        self.record(SUBMIT, " ".join(shlex.quote(a) for a in args[args.index(SUBMIT) + 1:]),
+                    out=f"Tunnel for session {sess.sid}: " + " ".join(shlex.quote(a) for a in args), running=True)
 
     def tunnel_ok(self, sess, tries=25):
         for _ in range(tries):
@@ -921,6 +1138,7 @@ class App:
                 except Problem:
                     pass
         self.cancel_prompt()
+        self.term.stop()
         if self.httpd:
             threading.Thread(target=self.httpd.shutdown, daemon=True).start()
 
@@ -949,6 +1167,59 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def stream_term(self, url):
+        """Server-sent events: the terminal's output, from where the page left off."""
+        term = self.app.term
+        last = self.headers.get("Last-Event-ID") or (parse_qs(url.query).get("from") or ["0"])[0]
+        pos = int(last) if str(last).isdigit() else 0
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        was_alive = None
+        while not self.app.quitting:
+            start, data, end, alive = term.read_from(pos, 15)
+            chunks = []
+            if data:
+                chunks.append(f"id: {end}\ndata: " + json.dumps({"start": start, "b64": base64.b64encode(data).decode()}) + "\n\n")
+                pos = end
+            if alive != was_alive:
+                chunks.append("event: state\ndata: " + json.dumps({"alive": alive}) + "\n\n")
+                was_alive = alive
+            self.wfile.write(("".join(chunks) or ": ping\n\n").encode())
+            self.wfile.flush()
+
+    def send_remote_file(self, url):
+        app = self.app
+        q = parse_qs(url.query)
+        path = (q.get("path") or [""])[0]
+        app.need_signin()
+        name = path.rstrip("/").rsplit("/", 1)[-1] or "file"
+        inline = (q.get("inline") or ["0"])[0] == "1"
+        ctype = IMAGE_TYPES.get(os.path.splitext(name)[1].lower(), "application/octet-stream") if inline else "application/octet-stream"
+        p = subprocess.Popen(["ssh", "-n", "-o", "BatchMode=yes", SUBMIT, f"cat -- {remote_path(path)}"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        app.record(SUBMIT, f"cat -- {remote_path(path)}", out=f"Sent {name} to the browser.", routine=True)
+        first = p.stdout.read(65536)
+        if not first and p.wait() != 0:
+            raise Problem(p.stderr.read().decode(errors="replace").strip() or "Couldn't read that file.")
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if not inline:
+            safe = re.sub(r'[^A-Za-z0-9._-]+', "_", name)[:120] or "file"
+            self.send_header("Content-Disposition", f'attachment; filename="{safe}"')
+        self.end_headers()
+        try:
+            chunk = first
+            while chunk:
+                self.wfile.write(chunk)
+                chunk = p.stdout.read(1 << 20)
+        finally:
+            p.kill()
 
     def host_ok(self):
         return self.headers.get("Host", "") in (f"127.0.0.1:{self.app.port}", f"localhost:{self.app.port}")
@@ -1012,8 +1283,23 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authed():
             return self.send(401, {"error": "Open Probe Bench from your Applications folder."})
         if method == "GET":
+            if path.startswith("/vendor/"):
+                name = path.rsplit("/", 1)[1]
+                if name not in VENDOR:
+                    return self.send(404, {"error": "Not found"})
+                return self.send(200, (HERE / "vendor" / name).read_bytes(), VENDOR[name],
+                                 {"Cache-Control": "max-age=86400"})
             if path == "/api/state":
                 return self.send(200, app.state())
+            if path == "/api/commands":
+                after = int((parse_qs(url.query).get("after") or ["0"])[0] or 0)
+                with app.lock:
+                    rows = [dict(c) for c in app.cmds if c["id"] > after]
+                return self.send(200, {"commands": rows, "last": app.cmd_seq})
+            if path == "/api/term/stream":
+                return self.stream_term(url)
+            if path == "/api/files/raw":
+                return self.send_remote_file(url)
             if path == "/api/sessions-live":
                 return self.send(200, {"count": len(app.live_sessions())})
             return self.send(404, {"error": "Not found"})
@@ -1093,6 +1379,25 @@ class Handler(BaseHTTPRequestHandler):
             return self.send(200, {"ok": True})
         if path == "/api/token":
             app.save_token(str(b.get("token", "")))
+            return self.send(200, {"ok": True})
+        if path == "/api/files/list":
+            return self.send(200, app.list_dir(str(b.get("path", "~"))))
+        if path == "/api/files/read":
+            return self.send(200, app.read_file(str(b.get("path", "")), bool(b.get("end")), b.get("bytes")))
+        if path == "/api/term/open":
+            if not read_conf()["ISYE_USER"]:
+                raise Problem("Set your Georgia Tech username first.")
+            ensure_ssh_config(read_conf()["ISYE_USER"], read_conf()["GATEWAY"])
+            app.term.start(b.get("cols"), b.get("rows"))
+            return self.send(200, {"alive": app.term.alive, "end": app.term.end})
+        if path == "/api/term/input":
+            app.term.write(str(b.get("data", ""))[:65536])
+            return self.send(200, {"ok": True})
+        if path == "/api/term/resize":
+            app.term.resize(b.get("cols"), b.get("rows"))
+            return self.send(200, {"ok": True})
+        if path == "/api/term/close":
+            app.term.stop()
             return self.send(200, {"ok": True})
         if path == "/api/quit":
             self.send(200, {"ok": True})

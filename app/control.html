@@ -162,6 +162,71 @@ main { max-width: 900px; margin: 0 auto; padding: 26px 20px 60px; }
 .log { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; background: #f7f9fb; border-radius: 5px; padding: 10px 12px; max-height: 260px; overflow: auto; margin-top: 8px; }
 footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: center; }
 
+/* ---------- terminal drawer */
+.spacer { flex: 1; }
+.drawer { position: fixed; left: 0; right: 0; bottom: 0; height: 46vh; background: #fff; border-top: 1px solid var(--rule);
+  box-shadow: 0 -10px 30px rgba(16, 32, 48, .12); z-index: 20; display: flex; flex-direction: column; }
+.drawer[hidden] { display: none; }
+.drawer.tall { height: 80vh; }
+body.drawer-open main { padding-bottom: 50vh; }
+.drawer-bar { display: flex; align-items: center; gap: 16px; padding: 4px 18px 0; border-bottom: 1px solid var(--rule); }
+.tabs2 button { border: 0; background: none; padding: 9px 2px 10px; margin-right: 20px; font-weight: 600; font-size: 14.5px; color: var(--ink-2);
+  border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; }
+.tabs2 button[aria-selected=true] { color: var(--navy); border-bottom-color: var(--gold); }
+.drawer-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 18px 10px; }
+.drawer-pane[hidden] { display: none; }
+.term-tools { gap: 6px 8px; }
+.chip-btn { border: 1px solid var(--rule); background: #fff; border-radius: 14px; padding: 3px 11px; font-size: 13px; cursor: pointer; color: var(--ink); }
+.chip-btn:hover { border-color: var(--navy); color: var(--navy); }
+.term { flex: 1; min-height: 0; background: #0f1a24; border-radius: 6px; padding: 6px 4px 4px 10px; overflow: hidden; }
+.cmds { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; min-height: 0; border-top: 1px solid var(--rule-soft); }
+.cmds li { border-bottom: 1px solid var(--rule-soft); }
+.cmds summary { display: grid; grid-template-columns: 104px 74px 1fr; gap: 10px; padding: 6px 4px; list-style: none; color: var(--ink); font-size: 13px; }
+.cmds summary::-webkit-details-marker { display: none; }
+.cmds summary:hover { background: #f6f8fa; }
+.cmds .t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.cmds .st { font-size: 12.5px; font-weight: 600; }
+.cmds .st.ok { color: var(--good-text); } .cmds .st.bad { color: var(--critical); } .cmds .st.run { color: var(--warn-text); }
+.cmds .c { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmds .body { padding: 2px 4px 10px 118px; }
+.cmds pre { margin: 6px 0 0; background: #f7f9fb; border: 1px solid var(--rule-soft); border-radius: 4px; padding: 8px 10px; font-size: 12px;
+  max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.cmds .full { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.files-bar { gap: 6px 8px; }
+.crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-family: var(--mono); font-size: 13px; min-width: 0; }
+.crumbs button { border: 0; background: none; padding: 2px 4px; border-radius: 4px; cursor: pointer; color: var(--navy); font: inherit; }
+.crumbs button:hover { background: #eef2f6; }
+.crumbs .sep { color: var(--muted); }
+.crumbs .here { color: var(--ink); font-weight: 600; padding: 2px 4px; }
+.files-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 38%) minmax(0, 1fr); gap: 14px; }
+.flist-wrap { display: flex; flex-direction: column; min-height: 0; gap: 6px; }
+.flist-tools input[type=text] { flex: 1; width: auto; padding: 5px 9px; font-size: 13.5px; }
+.flist-tools select { padding: 5px 8px; font-size: 13.5px; }
+.flist { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--rule); border-radius: 5px; }
+.frow { display: grid; grid-template-columns: 18px 1fr auto auto; gap: 8px; align-items: center; width: 100%; text-align: left; border: 0;
+  border-bottom: 1px solid var(--rule-soft); background: #fff; padding: 5px 9px; cursor: pointer; font-size: 13.5px; color: var(--ink); }
+.frow:hover { background: #f6f8fa; }
+.frow[aria-current=true] { background: var(--gold-wash); box-shadow: inset 3px 0 0 var(--gold); }
+.frow .ic { width: 14px; height: 12px; border-radius: 2px; border: 1.5px solid var(--muted); }
+.frow .ic.dir { background: #d9e6f5; border-color: #6d8fb8; border-radius: 1px 4px 2px 2px; }
+.frow .nm { font-family: var(--mono); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow .nm .lk { color: var(--muted); }
+.frow .sz, .frow .tm { color: var(--ink-2); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fview { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.fv-body { display: flex; flex-direction: column; min-height: 0; flex: 1; gap: 4px; }
+.fv-bar { gap: 6px 10px; }
+.fv-name { font-family: var(--mono); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+.fv-bar a.btn { text-decoration: none; }
+.fv-text { flex: 1; min-height: 0; margin: 0; overflow: auto; background: #f7f9fb; border: 1px solid var(--rule-soft); border-radius: 5px;
+  padding: 8px 10px; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; white-space: pre; tab-size: 4; }
+.fv-text.wrap { white-space: pre-wrap; word-break: break-word; }
+.fv-img { max-width: 100%; max-height: 100%; object-fit: contain; align-self: flex-start; border: 1px solid var(--rule-soft); border-radius: 4px; }
+.toggle2 { display: inline-flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; }
+.toggle2 button { border: 0; background: #fff; padding: 3px 10px; font-size: 13px; cursor: pointer; color: var(--ink-2); }
+.toggle2 button + button { border-left: 1px solid var(--rule); }
+.toggle2 button[aria-pressed=true] { background: var(--navy); color: #fff; }
+@media (max-width: 760px) { .files-main { grid-template-columns: 1fr; } }
+
 /* prompt dialog */
 .scrim { position: fixed; inset: 0; background: rgba(16, 32, 48, .35); display: none; align-items: center; justify-content: center; z-index: 30; padding: 20px; }
 .scrim.show { display: flex; }
@@ -182,6 +247,7 @@ footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: c
 <header class="bar">
   <h1>Probe Bench</h1>
   <span class="spacer"></span>
+  <button class="btn small quiet" id="term-btn" type="button" aria-expanded="false" aria-controls="drawer" title="A terminal on the cluster, and the commands Probe Bench runs">Terminal</button>
   <details class="acct-menu" id="acct-menu">
     <summary class="chip"><span class="dot" id="acct-dot"></span><span id="acct-text">Starting</span></summary>
     <div class="menu" role="menu">
@@ -345,6 +411,93 @@ footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: c
   </section>
 </main>
 
+<section class="drawer" id="drawer" aria-label="Terminal and command history" hidden>
+  <div class="drawer-bar">
+    <div class="tabs2" role="tablist" aria-label="Terminal views">
+      <button role="tab" id="dt-term" aria-selected="true" aria-controls="dp-term" type="button">Cluster terminal</button>
+      <button role="tab" id="dt-files" aria-selected="false" aria-controls="dp-files" type="button" tabindex="-1">Files</button>
+      <button role="tab" id="dt-cmds" aria-selected="false" aria-controls="dp-cmds" type="button" tabindex="-1">Commands Probe Bench ran</button>
+    </div>
+    <span class="spacer"></span>
+    <button class="linkish" id="drawer-size" type="button">Taller</button>
+    <button class="linkish" id="drawer-close" type="button">Close</button>
+  </div>
+  <div class="drawer-pane" id="dp-term" role="tabpanel" aria-labelledby="dt-term">
+    <div class="row term-tools">
+      <span class="hint">Run:</span>
+      <button class="chip-btn" type="button" data-cmd="condor_q -nobatch" title="condor_q -nobatch">My jobs</button>
+      <button class="chip-btn" type="button" data-cmd="watch -n 10 condor_q -nobatch" title="Refreshes every 10 seconds. Press Ctrl-C to stop.">Watch my jobs</button>
+      <button class="chip-btn" type="button" data-cmd="condor_q -better-analyze $(condor_q -af ClusterId | tail -1)" title="condor_q -better-analyze on your newest job">Why is my job waiting?</button>
+      <button class="chip-btn" type="button" data-cmd="cd ~/probebench/jobs && tail -n 30 $(ls -t *.log | head -1) $(ls -t *.out | head -1) $(ls -t *.err | head -1); cd - >/dev/null" title="The newest install or download job: its event log and its output">Latest job log</button>
+      <button class="chip-btn" type="button" data-cmd="bash ~/probebench/app/labctl.sh log" title="The newest GPU session's server log">Latest session log</button>
+      <button class="chip-btn" type="button" data-cmd="condor_status -gpus -compact" title="Every GPU machine and whether it's busy">GPU machines</button>
+      <span class="spacer"></span>
+      <span class="hint" id="term-status"></span>
+      <button class="btn small quiet" id="term-copy" type="button">Copy output</button>
+      <button class="btn small quiet" id="term-reconnect" type="button">Reconnect</button>
+    </div>
+    <div class="term" id="term"></div>
+    <p class="hint">A shell on compute01, signed in as you, the same as <code>ssh probebench-submit</code> in Terminal. Commands run for real: <code>condor_rm</code> removes jobs.</p>
+  </div>
+  <div class="drawer-pane" id="dp-files" role="tabpanel" aria-labelledby="dt-files" hidden>
+    <div class="row files-bar">
+      <button class="btn small quiet" id="f-up" type="button" aria-label="Up one folder">Up</button>
+      <nav class="crumbs" id="f-crumbs" aria-label="Current folder"></nav>
+      <span class="spacer"></span>
+      <span class="hint">Go to:</span>
+      <button class="chip-btn" type="button" data-go="~">Home</button>
+      <button class="chip-btn" type="button" data-go="~/probebench/jobs" title="Logs of install and download jobs">Job logs</button>
+      <button class="chip-btn" type="button" data-go="~/probebench/sessions" title="One folder per GPU session, with its logs">Sessions</button>
+      <button class="chip-btn" type="button" data-go="~/probebench/exports" title="Files from Save activations">Saved activations</button>
+      <button class="chip-btn" type="button" data-go="~/hf_cache/hub" title="Downloaded models">Models</button>
+      <button class="btn small quiet" id="f-refresh" type="button">Refresh</button>
+    </div>
+    <div class="files-main">
+      <div class="flist-wrap">
+        <div class="row flist-tools">
+          <input type="text" id="f-filter" placeholder="Filter this folder" aria-label="Filter this folder" spellcheck="false">
+          <select id="f-sort" aria-label="Sort by">
+            <option value="name">Name</option>
+            <option value="new">Newest first</option>
+            <option value="big">Largest first</option>
+          </select>
+        </div>
+        <p class="hint" id="f-status" role="status"></p>
+        <div class="flist" id="f-list"></div>
+      </div>
+      <div class="fview">
+        <p class="hint" id="fv-empty">Pick a file to read it here. Logs open at the end, where the newest lines are.</p>
+        <div class="fv-body" id="fv-body" hidden>
+          <div class="row fv-bar">
+            <strong class="fv-name" id="fv-name"></strong>
+            <span class="spacer"></span>
+            <span class="toggle2" role="group" aria-label="Which part of the file">
+              <button type="button" id="fv-start" aria-pressed="true">Start</button><button type="button" id="fv-end" aria-pressed="false">End</button>
+            </span>
+            <label class="check" title="Reload the end of the file every 5 seconds"><input type="checkbox" id="fv-follow"> Follow</label>
+            <label class="check"><input type="checkbox" id="fv-wrap"> Wrap lines</label>
+            <button class="btn small quiet" id="fv-copy" type="button">Copy</button>
+            <a class="btn small quiet" id="fv-download" href="#">Download</a>
+          </div>
+          <p class="hint" id="fv-meta"></p>
+          <pre class="fv-text" id="fv-text"></pre>
+          <img class="fv-img" id="fv-img" alt="" hidden>
+        </div>
+      </div>
+    </div>
+    <p class="hint">Read-only. To move or delete files, use the terminal.</p>
+  </div>
+  <div class="drawer-pane" id="dp-cmds" role="tabpanel" aria-labelledby="dt-cmds" hidden>
+    <div class="row">
+      <p class="hint">Every command Probe Bench has sent to the cluster since it started, newest first. Click one to see what it printed.</p>
+      <span class="spacer"></span>
+      <label class="check"><input type="checkbox" id="cmd-routine"> Show routine checks</label>
+      <button class="btn small quiet" id="cmd-copy" type="button">Copy the last 20</button>
+    </div>
+    <ol class="cmds" id="cmds"></ol>
+  </div>
+</section>
+
 <div class="scrim" id="scrim" role="dialog" aria-modal="true" aria-labelledby="dlg-title">
   <div class="dialog">
     <h2 id="dlg-title"></h2>
@@ -396,6 +549,232 @@ async function api(path, body) {
 
 let S = null, clock = 0, homeForced = false, lastLog = "";
 const sessionSig = {};
+
+// ------------------------------------------------------------ terminal and command list
+// The terminal is xterm.js (vendor/, MIT license) talking to an ssh session the app keeps open on compute01.
+const T = { term: null, fit: null, es: null, loading: null, alive: false, pending: null, cmds: [], cmdsLast: 0, cmdTimer: null };
+const loadScript = (src) => new Promise((res, rej) => { const s = el("script", { src }); s.onload = res; s.onerror = () => rej(new Error(`Couldn't load ${src}`)); document.head.append(s); });
+async function ensureXterm() {
+  if (window.Terminal && window.FitAddon) return;
+  if (!T.loading) T.loading = (async () => {
+    document.head.append(el("link", { rel: "stylesheet", href: "/vendor/xterm.css" }));
+    await loadScript("/vendor/xterm.js"); await loadScript("/vendor/addon-fit.js");
+  })();
+  await T.loading;
+}
+function setDrawer(open, tab) {
+  $("drawer").hidden = !open; document.body.classList.toggle("drawer-open", open);
+  $("term-btn").setAttribute("aria-expanded", String(open));
+  clearInterval(T.cmdTimer);
+  if (open) drawerTab(tab || (["term", "files", "cmds"].find((n) => $("dt-" + n).getAttribute("aria-selected") === "true") || "term"));
+}
+function drawerTab(tab) {
+  for (const [b, pane, name] of [["dt-term", "dp-term", "term"], ["dt-files", "dp-files", "files"], ["dt-cmds", "dp-cmds", "cmds"]]) {
+    $(b).setAttribute("aria-selected", String(tab === name)); $(b).tabIndex = tab === name ? 0 : -1; $(pane).hidden = tab !== name;
+  }
+  clearInterval(T.cmdTimer);
+  if (tab === "term") startTerm().catch((e) => { $("term-status").textContent = e.message; });
+  else if (tab === "files") { if (F.path == null) openFolder(savedFolder()); }
+  else { refreshCmds(); T.cmdTimer = setInterval(refreshCmds, 3000); }
+}
+$("term-btn").addEventListener("click", () => setDrawer($("drawer").hidden));
+$("drawer-close").addEventListener("click", () => setDrawer(false));
+$("drawer-size").addEventListener("click", () => {
+  const tall = $("drawer").classList.toggle("tall"); $("drawer-size").textContent = tall ? "Shorter" : "Taller";
+});
+$("dt-term").addEventListener("click", () => drawerTab("term"));
+$("dt-cmds").addEventListener("click", () => drawerTab("cmds"));
+$("dt-files").addEventListener("click", () => drawerTab("files"));
+function termStatus() { $("term-status").textContent = T.alive ? "Connected to compute01" : "Not connected"; }
+async function startTerm() {
+  await ensureXterm();
+  if (!T.term) {
+    T.term = new Terminal({ fontFamily: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace', fontSize: 13, cursorBlink: true, scrollback: 10000,
+      theme: { background: "#0f1a24", foreground: "#dfe6ee", cursor: "#b3a369", selectionBackground: "#3b5670" } });
+    T.fit = new FitAddon.FitAddon(); T.term.loadAddon(T.fit); T.term.open($("term"));
+    T.term.onData((d) => { if (T.alive) api("/api/term/input", { data: d }).catch(() => {}); });
+    T.term.onResize(({ cols, rows }) => { if (T.alive) api("/api/term/resize", { cols, rows }).catch(() => {}); });
+    new ResizeObserver(() => { try { T.fit.fit(); } catch (e) { /* hidden */ } }).observe($("term"));
+    const dec = new TextDecoder();
+    T.es = new EventSource("/api/term/stream?from=0");
+    T.es.onmessage = (ev) => {
+      const j = JSON.parse(ev.data), bin = atob(j.b64), u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      T.term.write(u);
+      // A quick command clicked while connecting waits for the shell prompt, so it never lands in a password prompt.
+      if (T.pending && /[$#] $/.test(dec.decode(u.slice(-200)))) { const c = T.pending; T.pending = null; sendLine(c); }
+    };
+    T.es.addEventListener("state", (ev) => { T.alive = JSON.parse(ev.data).alive; termStatus(); });
+  }
+  try { T.fit.fit(); } catch (e) { /* not visible yet */ }
+  if (!T.alive) {
+    const r = await api("/api/term/open", { cols: T.term.cols, rows: T.term.rows });
+    T.alive = r.alive; termStatus();
+  }
+  T.term.focus();
+}
+function sendLine(cmd) { api("/api/term/input", { data: "\x15" + cmd + "\r" }).catch(() => {}); T.term.focus(); }
+document.querySelectorAll(".chip-btn[data-cmd]").forEach((b) => b.addEventListener("click", async () => {
+  const was = T.alive;
+  try { await startTerm(); } catch (e) { $("term-status").textContent = e.message; return; }
+  if (was) sendLine(b.dataset.cmd);
+  else { T.pending = b.dataset.cmd; $("term-status").textContent = "Connecting. The command runs once you're at the prompt."; }
+}));
+$("term-reconnect").addEventListener("click", async () => {
+  if (T.alive) {
+    await api("/api/term/close", {}).catch(() => {});
+    for (let i = 0; i < 30 && T.alive; i++) await sleep(100);
+  }
+  T.alive = false; await startTerm().catch((e) => { $("term-status").textContent = e.message; });
+});
+$("term-copy").addEventListener("click", async () => {
+  if (!T.term) return;
+  T.term.selectAll(); const text = T.term.getSelection().replace(/\s+$/, "") + "\n"; T.term.clearSelection();
+  try { await navigator.clipboard.writeText(text); $("term-status").textContent = "Copied the terminal's output."; }
+  catch (e) { $("term-status").textContent = "Your browser blocked copying. Select the text and press ⌘C."; }
+});
+// ---- files on the cluster (read-only)
+const F = { path: null, home: null, entries: [], total: 0, file: null, end: false, followTimer: null };
+const LOGLIKE = /\.(log|out|err|txt)$/i, IMAGES = /\.(png|jpe?g|gif|webp)$/i;
+function savedFolder() { try { return localStorage.getItem("pb-files-path") || "~"; } catch (e) { return "~"; } }
+const tilde = (p) => (F.home && (p === F.home || p.startsWith(F.home + "/")) ? "~" + p.slice(F.home.length) : p);
+const joinPath = (dir, name) => (dir.endsWith("/") ? dir : dir + "/") + name;
+function fsize(b) {
+  if (b < 1024) return `${b} B`;
+  for (const [u, k] of [["GB", 2 ** 30], ["MB", 2 ** 20], ["KB", 1024]]) if (b >= k) return `${(b / k).toFixed(b >= 10 * k ? 0 : 1)} ${u}`;
+}
+function ftime(t) {
+  const d = new Date(t * 1000), today = new Date().toDateString() === d.toDateString();
+  return today ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+               : d.toLocaleDateString([], { month: "short", day: "numeric" }) + (d.getFullYear() !== new Date().getFullYear() ? `, ${d.getFullYear()}` : "");
+}
+async function openFolder(path) {
+  $("f-status").textContent = "Loading…";
+  try {
+    const r = await api("/api/files/list", { path });
+    Object.assign(F, { path: r.path, home: r.home, entries: r.entries, total: r.total });
+    try { localStorage.setItem("pb-files-path", tilde(r.path)); } catch (e) { /* private window */ }
+    $("f-filter").value = ""; renderFiles();
+    $("f-status").textContent = r.total > r.entries.length ? `Showing ${r.entries.length.toLocaleString()} of ${r.total.toLocaleString()} items.` : "";
+  } catch (e) {
+    $("f-status").textContent = e.message;
+    if (F.path == null && path !== "~") openFolder("~");
+  }
+}
+function renderFiles() {
+  const crumbs = $("f-crumbs"); crumbs.replaceChildren();
+  const shown = tilde(F.path), parts = shown.split("/").filter(Boolean), absolute = shown.startsWith("/");
+  let acc = absolute ? "" : null;
+  if (absolute) crumbs.append(el("button", { type: "button", text: "/", onclick: () => openFolder("/") }));
+  parts.forEach((part, i) => {
+    acc = acc == null ? part : acc + "/" + part;
+    const target = acc.startsWith("~") ? acc : "/" + acc.replace(/^\//, "");
+    if (i > 0) crumbs.append(el("span", { class: "sep", text: "/" }));
+    crumbs.append(i === parts.length - 1 ? el("span", { class: "here", text: part }) : el("button", { type: "button", text: part, onclick: () => openFolder(target) }));
+  });
+  $("f-up").disabled = F.path === "/";
+  const q = $("f-filter").value.trim().toLowerCase(), sort = $("f-sort").value;
+  let rows = F.entries.filter((e) => !q || e.name.toLowerCase().includes(q));
+  if (sort === "new") rows = rows.slice().sort((a, b) => b.mtime - a.mtime);
+  if (sort === "big") rows = rows.slice().sort((a, b) => (b.dir ? -1 : b.size) - (a.dir ? -1 : a.size));
+  const list = $("f-list"); list.replaceChildren();
+  if (!rows.length) list.append(el("p", { class: "hint", style: "padding:10px", text: q ? "Nothing here matches." : "This folder is empty." }));
+  for (const e of rows) {
+    const full = joinPath(F.path, e.name);
+    const b = el("button", { class: "frow", type: "button", title: tilde(full), "aria-current": String(!!F.file && F.file.path === full) },
+      el("span", { class: "ic" + (e.dir ? " dir" : "") }),
+      el("span", { class: "nm" }, document.createTextNode(e.name + (e.dir ? "/" : "")), e.link ? el("span", { class: "lk", text: " (link)" }) : null),
+      el("span", { class: "sz", text: e.dir ? "" : fsize(e.size) }), el("span", { class: "tm", text: ftime(e.mtime) }));
+    b.addEventListener("click", () => (e.dir ? openFolder(full) : openFile(full, { size: e.size })));
+    list.append(b);
+  }
+}
+$("f-up").addEventListener("click", () => { if (F.path && F.path !== "/") openFolder(F.path.replace(/\/[^/]+\/?$/, "") || "/"); });
+$("f-refresh").addEventListener("click", () => { if (F.path) openFolder(F.path); if (F.file) openFile(F.file.path, { end: F.end, quiet: true }); });
+$("f-filter").addEventListener("input", renderFiles);
+$("f-sort").addEventListener("change", renderFiles);
+document.querySelectorAll("[data-go]").forEach((b) => b.addEventListener("click", () => openFolder(b.dataset.go)));
+async function openFile(path, { end, size, quiet } = {}) {
+  const name = path.split("/").pop();
+  if (end === undefined) end = LOGLIKE.test(name);
+  $("fv-empty").hidden = true; $("fv-body").hidden = false;
+  $("fv-name").textContent = name; $("fv-name").title = tilde(path);
+  $("fv-download").href = "/api/files/raw?path=" + encodeURIComponent(path); $("fv-download").setAttribute("download", name);
+  const img = $("fv-img"), pre = $("fv-text");
+  if (IMAGES.test(name) && (size == null || size < 20 * 2 ** 20)) {
+    F.file = { path }; renderFiles();
+    pre.hidden = true; img.hidden = false; img.src = "/api/files/raw?inline=1&path=" + encodeURIComponent(path); img.alt = name;
+    $("fv-meta").textContent = size != null ? fsize(size) : ""; return;
+  }
+  img.hidden = true; img.removeAttribute("src"); pre.hidden = false;
+  if (!quiet) $("fv-meta").textContent = "Loading…";
+  try {
+    const r = await api("/api/files/read", { path, end });
+    const atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 30;
+    F.file = { path, size: r.size }; F.end = end; renderFiles();
+    $("fv-start").setAttribute("aria-pressed", String(!end)); $("fv-end").setAttribute("aria-pressed", String(end));
+    if (r.binary) { pre.textContent = "This looks like a binary file, so it isn't shown. Use Download to save it."; }
+    else pre.textContent = r.text;
+    $("fv-meta").textContent = `${fsize(r.size)}, changed ${ftime(r.mtime)}.` +
+      (r.partial ? ` Showing the ${end ? "last" : "first"} ${fsize(r.shown)}; use ${end ? "Start" : "End"} for the other end, or Download for all of it.` : "");
+    if (end && (!quiet || atBottom)) pre.scrollTop = pre.scrollHeight; else if (!quiet) pre.scrollTop = 0;
+  } catch (e) { $("fv-meta").textContent = e.message; pre.textContent = ""; }
+}
+$("fv-start").addEventListener("click", () => { if (F.file) { $("fv-follow").checked = false; follow(); openFile(F.file.path, { end: false }); } });
+$("fv-end").addEventListener("click", () => { if (F.file) openFile(F.file.path, { end: true }); });
+$("fv-wrap").addEventListener("change", () => $("fv-text").classList.toggle("wrap", $("fv-wrap").checked));
+function follow() {
+  clearInterval(F.followTimer);
+  if ($("fv-follow").checked && F.file) {
+    openFile(F.file.path, { end: true, quiet: true });
+    F.followTimer = setInterval(() => { if (!$("drawer").hidden && !$("dp-files").hidden && F.file) openFile(F.file.path, { end: true, quiet: true }); }, 5000);
+  }
+}
+$("fv-follow").addEventListener("change", follow);
+$("fv-copy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("fv-text").textContent); $("fv-copy").textContent = "Copied"; setTimeout(() => ($("fv-copy").textContent = "Copy"), 1500); }
+  catch (e) { /* blocked */ }
+});
+$("fv-download").addEventListener("click", (e) => {
+  if (F.file && F.file.size > 500 * 2 ** 20 && !confirm(`This file is ${fsize(F.file.size)}. Download it anyway?`)) e.preventDefault();
+});
+
+// ---- the commands Probe Bench ran
+const hhmmss = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+function cmdStatus(c) {
+  if (c.running) return ["running", "run"];
+  if (c.rc === "timeout") return ["timed out", "bad"];
+  return c.rc === 0 ? ["ok", "ok"] : [`exit ${c.rc}`, "bad"];
+}
+async function refreshCmds() {
+  try {
+    const r = await api(`/api/commands?after=${T.cmdsLast}`);
+    if (r.commands.length) { T.cmds = T.cmds.concat(r.commands).slice(-300); T.cmdsLast = r.last; renderCmds(); }
+  } catch (e) { /* the banner already says the app is down */ }
+}
+const shownCmds = () => T.cmds.filter((c) => $("cmd-routine").checked || !c.routine).slice().reverse();
+function renderCmds() {
+  const ol = $("cmds"), open = new Set([...ol.querySelectorAll("details[open]")].map((d) => d.dataset.id)); ol.replaceChildren();
+  const list = shownCmds();
+  if (!list.length) ol.append(el("li", { class: "hint", style: "padding:10px 4px", text: "Nothing yet. Commands appear here as Probe Bench runs them." }));
+  for (const c of list) {
+    const [label, cls] = cmdStatus(c);
+    const d = el("details", { "data-id": String(c.id) },
+      el("summary", {}, el("span", { class: "t", text: hhmmss(c.at) }), el("span", { class: "st " + cls, text: label }), el("span", { class: "c", text: c.cmd })),
+      el("div", { class: "body" }, el("p", { class: "full", text: c.cmd }),
+        el("p", { class: "hint", text: c.secs != null ? `Took ${c.secs < 1 ? "under a second" : dur(c.secs)}.` : "" }),
+        el("pre", { text: c.out || "(no output)" }),
+        el("button", { class: "linkish", type: "button", text: "Copy", onclick: () => navigator.clipboard.writeText(cmdText(c)).catch(() => {}) })));
+    if (open.has(String(c.id))) d.open = true;
+    ol.append(el("li", {}, d));
+  }
+}
+const cmdText = (c) => `[${hhmmss(c.at)}] $ ${c.cmd}\n(${cmdStatus(c)[0]}${c.secs != null ? ", " + c.secs.toFixed(1) + " s" : ""})\n${(c.out || "").trimEnd()}\n`;
+$("cmd-routine").addEventListener("change", renderCmds);
+$("cmd-copy").addEventListener("click", async (e) => {
+  const text = shownCmds().slice(0, 20).reverse().map(cmdText).join("\n");
+  try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; setTimeout(() => (e.target.textContent = "Copy the last 20"), 1500); } catch (err) { /* blocked */ }
+});
 
 // ------------------------------------------------------------ polling
 async function poll() {

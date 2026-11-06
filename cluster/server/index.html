@@ -277,6 +277,9 @@ select { border: 1px solid var(--rule); border-radius: 4px; background: #fff; pa
 .vec-canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; }
 .vec-mark { position: absolute; top: 6px; width: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
 .vec-scroll { max-height: 70vh; }
+.layer-scrub input[type=range] { width: 220px; accent-color: var(--navy); }
+.vlayer-label { font-variant-numeric: tabular-nums; color: var(--ink); min-width: 9ch; }
+.vec-rowmark { position: absolute; left: 0; height: 2px; background: var(--gold); pointer-events: none; box-shadow: 0 0 0 1px #fff; }
 
 /* ---------- GPU memory */
 .gpu-wrap { position: relative; }
@@ -511,6 +514,7 @@ dl.meta dd { margin: 0; }
                 <button class="menu-item" type="button" data-dl="norms">State sizes as CSV (layers by tokens)</button>
                 <button class="menu-item" type="button" data-dl="chan" id="dl-chan">The selected channel as CSV (layers by tokens)</button>
                 <button class="menu-item" type="button" data-dl="vec" id="dl-vec">Every channel at the selected token as CSV (layers by channels)</button>
+                <button class="menu-item" type="button" data-dl="lslice" id="dl-lslice">Every channel at one layer as CSV (tokens by channels)</button>
                 <button class="menu-item" type="button" data-dl="lens">Top 5 predictions at every layer and token as CSV</button>
                 <button class="menu-item" type="button" data-dl="json">Sizes, predictions and largest channels as JSON</button>
                 <p class="hint">For the full activation vectors, use Save activations above.</p>
@@ -565,6 +569,18 @@ dl.meta dd { margin: 0; }
 
         <h3 class="sub" id="vec-title">Every channel at the selected token</h3>
         <p class="chart-sub" id="vec-sub"></p>
+        <div class="row vec-controls">
+          <span class="seg small" role="radiogroup" aria-label="Which slice of the activations">
+            <label><input type="radio" name="vslice" value="token" checked><span>One token, every layer</span></label>
+            <label><input type="radio" name="vslice" value="layer"><span>One layer, every token</span></label>
+          </span>
+          <span class="ctl layer-scrub" id="vlayer-ctl" hidden>
+            <button class="btn quiet small" id="vl-prev" type="button" aria-label="Previous layer">‹</button>
+            <input type="range" id="vlayer" min="0" max="1" step="1" value="0" aria-label="Layer">
+            <button class="btn quiet small" id="vl-next" type="button" aria-label="Next layer">›</button>
+            <span id="vlayer-label" class="vlayer-label"></span>
+          </span>
+        </div>
         <div class="row vec-controls">
           <span class="seg small" role="radiogroup" aria-label="Width of each channel">
             <label><input type="radio" name="vzoom" value="fit" checked><span>Fit to width</span></label>
@@ -774,7 +790,8 @@ function hideTip() { tip.style.display = "none"; }
 // ------------------------------------------------------------------ state
 const S = { status: null, models: null, chosen: null, analysis: null, pos: null, layerFocus: null,
             weights: null, wSelected: null, history: [], genTask: null, card: null, readme: null, across: null,
-            wLayer: 0, chan: null, chanCache: new Map(), chanLoading: new Set(), vec: null, vecCache: new Map() };
+            wLayer: 0, chan: null, chanCache: new Map(), chanLoading: new Set(), vec: null, vecCache: new Map(),
+            layerCache: new Map(), lslice: null, vLayer: null };
 
 // ------------------------------------------------------------------ session bar
 function setLost(v) {
@@ -1215,8 +1232,8 @@ const isDark = (c) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] < 140;
 const colorOpts = () => ({ mode: document.querySelector("input[name=norm]:checked").value,
                            log: document.querySelector("input[name=scale]:checked").value === "log" });
 // rows: one array per layer. skip: leading columns (tokens) left out of the color range.
-function makeScale(rows, signed, skip = 0) {
-  const { mode, log } = colorOpts();
+function makeScale(rows, signed, skip = 0, skipRows = 0, forceGlobal = false) {
+  const { log } = colorOpts(), mode = forceGlobal ? "global" : colorOpts().mode;
   const tf = log ? (v) => (v > 0 ? Math.log10(v) : NaN) : (v) => v;
   let stats = rows.map((row) => {
     let lo = Infinity, hi = -Infinity, m = 0;
@@ -1230,7 +1247,7 @@ function makeScale(rows, signed, skip = 0) {
   });
   if (mode === "global") {
     let lo = Infinity, hi = -Infinity, m = 0;
-    for (const s of stats) { lo = Math.min(lo, s.lo); hi = Math.max(hi, s.hi); m = Math.max(m, s.m); }
+    stats.forEach((s, i) => { if (i < skipRows && stats.length > skipRows) return; lo = Math.min(lo, s.lo); hi = Math.max(hi, s.hi); m = Math.max(m, s.m); });
     stats = stats.map(() => ({ lo, hi, m }));
   }
   const f = signed
@@ -1271,6 +1288,7 @@ $("act-run").addEventListener("click", async () => {
     const r = await runTask("/api/analyze", p, (t) => { setBar("act-progress", t.fraction); $("act-ptext").textContent = t.progress || ""; });
     S.analysis = r; S.analysisParams = p; S.pos = r.tokens.length - 1; S.layerFocus = null; S.mapGeom = null;
     S.chanCache = new Map(); S.chanLoading = new Set(); S.vecCache = new Map(); S.vec = null; S.vecGeom = null;
+    S.layerCache = new Map(); S.lslice = null; S.vLayer = r.layers;
     S.chan = ((r.tokens.length >= 3 ? r.top_channels_skip : r.top_channels)[0] || { c: 0 }).c;
     showMsg("act-msg", r.truncated ? `Showing the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "", r.truncated ? "warn" : "");
     $("act-result").hidden = false; renderAnalysis();
@@ -1300,6 +1318,21 @@ $("cmap").addEventListener("change", redrawAll);
 $("skip-first").addEventListener("change", redrawAll);
 document.querySelectorAll("input[name=mapview]").forEach((r) => r.addEventListener("change", () => { S.mapGeom = null; drawHeat(); }));
 document.querySelectorAll("input[name=vzoom]").forEach((r) => r.addEventListener("change", () => { S.vecGeom = null; drawVec(); }));
+const vslice = () => document.querySelector("input[name=vslice]:checked").value;
+document.querySelectorAll("input[name=vslice]").forEach((r) => r.addEventListener("change", () => {
+  S.vecGeom = null;
+  if (vslice() === "layer" && S.layerFocus != null) S.vLayer = S.layerFocus;
+  loadVector();
+}));
+function setVLayer(li) {
+  const r = S.analysis; if (!r) return;
+  S.vLayer = Math.max(0, Math.min(r.layers, li)); $("vlayer").value = S.vLayer; vlayerLabel(); loadVector();
+}
+const vlayerLabel = () => { $("vlayer-label").textContent = S.vLayer === 0 ? "embeddings" : `layer ${S.vLayer} of ${S.analysis.layers}`; };
+let vlTimer = null;
+$("vlayer").addEventListener("input", () => { S.vLayer = Number($("vlayer").value); vlayerLabel(); clearTimeout(vlTimer); vlTimer = setTimeout(loadVector, 120); });
+$("vl-prev").addEventListener("click", () => setVLayer(S.vLayer - 1));
+$("vl-next").addEventListener("click", () => setVLayer(S.vLayer + 1));
 
 function renderAnalysis() {
   const r = S.analysis, box = $("act-tokens"); box.replaceChildren();
@@ -1311,6 +1344,7 @@ function renderAnalysis() {
   $("skip-row").hidden = r.tokens.length < 3;
   $("act-summary").textContent = `${r.model}: ${r.tokens.length} tokens, ${r.layers} layers, ${fmtInt.format(r.width)} channels.` +
     (r.truncated ? ` Only the first ${r.max_tokens} of ${r.total_tokens} tokens.` : "");
+  if (vslice() === "layer" && S.layerFocus != null && S.layerFocus !== S.vLayer) S.vLayer = S.layerFocus;
   renderChanPicker(); drawHeat(); drawLens(); drawNormTable(); loadVector();
   const sel = box.querySelector("[aria-pressed=true]"); if (sel) scrollWithin(box, sel);
 }
@@ -1459,67 +1493,88 @@ function drawHeat() {
   $("scroll-hint").textContent = plotW + axisW > host.clientWidth + 4 || H > host.clientHeight + 4 ? "Scroll the map to see all of it, or use Expand." : "";
 }
 
-// ---- every channel of one token: layers by channels
+// ---- every channel: one token at every layer (layers by channels), or one layer for every token (tokens by channels)
+async function fetchSlice(url) {
+  const resp = await fetch(url, { credentials: "same-origin" });
+  if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || `Request failed (${resp.status})`); }
+  const [rows, width] = resp.headers.get("X-Shape").split(",").map(Number);
+  return { rows, width, data: new Float32Array(await resp.arrayBuffer()) };
+}
 async function loadVector() {
-  const r = S.analysis, pos = S.pos; if (!r) return;
-  let v = S.vecCache.get(pos);
-  if (!v) {
-    $("vec-status").textContent = "Loading the full vectors…";
-    try {
-      const resp = await fetch(`/api/act/vector?aid=${r.aid}&pos=${pos}`, { credentials: "same-origin" });
-      if (!resp.ok) { const j = await resp.json().catch(() => ({})); throw new Error(j.error || `Request failed (${resp.status})`); }
-      const [rows, width] = resp.headers.get("X-Shape").split(",").map(Number);
-      v = { rows, width, data: new Float32Array(await resp.arrayBuffer()) };
-      S.vecCache.set(pos, v);
-      if (S.vecCache.size > 24) S.vecCache.delete(S.vecCache.keys().next().value);
-    } catch (e) { if (S.analysis === r && S.pos === pos) $("vec-status").textContent = e.message; return; }
+  const r = S.analysis; if (!r) return;
+  const mode = vslice();
+  $("vlayer-ctl").hidden = mode !== "layer";
+  if (mode === "layer") {
+    if (S.vLayer == null) S.vLayer = r.layers;
+    $("vlayer").max = r.layers; $("vlayer").value = S.vLayer; vlayerLabel();
   }
-  if (S.analysis !== r || S.pos !== pos) return;
+  const key = mode === "token" ? S.pos : S.vLayer, cache = mode === "token" ? S.vecCache : S.layerCache;
+  let v = cache.get(key);
+  if (!v) {
+    $("vec-status").textContent = mode === "token" ? "Loading the vectors…" : `Loading ${key === 0 ? "the embeddings" : "layer " + key}…`;
+    try {
+      v = await fetchSlice(mode === "token" ? `/api/act/vector?aid=${r.aid}&pos=${key}` : `/api/act/layer?aid=${r.aid}&layer=${key}`);
+      cache.set(key, v);
+      if (cache.size > 24) cache.delete(cache.keys().next().value);
+    } catch (e) { if (S.analysis === r) $("vec-status").textContent = e.message; return; }
+  }
+  if (S.analysis !== r || vslice() !== mode || (mode === "token" ? S.pos : S.vLayer) !== key) return;
   $("vec-status").textContent = "";
-  S.vec = { ...v, pos }; drawVec();
+  if (mode === "token") S.vec = { ...v, pos: key }; else S.lslice = { ...v, layer: key };
+  drawVec();
 }
 function drawVec() {
-  const r = S.analysis, v = S.vec, host = $("vec");
-  if (!r || !v || v.pos !== S.pos) return;
+  const r = S.analysis, host = $("vec"); if (!r) return;
+  const mode = vslice(), v = mode === "token" ? S.vec : S.lslice;
+  if (!v || (mode === "token" ? v.pos !== S.pos : v.layer !== S.vLayer)) return;
   const keep = { left: host.scrollLeft, top: host.scrollTop };
-  const L1 = v.rows, d = v.width, axisW = 50, expanded = $("act-result").classList.contains("expanded");
+  const R = v.rows, d = v.width, expanded = $("act-result").classList.contains("expanded");
+  const byToken = mode === "layer";                       // rows are tokens, top to bottom; otherwise layers, bottom to top
+  const axisW = byToken ? 130 : 50;
   const zoom = document.querySelector("input[name=vzoom]:checked").value;
   const avail = Math.max(200, (host.clientWidth || 900) - axisW - 4);
   const bins = zoom === "fit" ? Math.min(d, Math.floor(avail)) : d;
   const px = zoom === "fit" ? avail / bins : Number(zoom);
   // Bin by the largest magnitude, so a single outlier channel stays visible when many share a pixel.
-  const B = new Float32Array(L1 * bins), C = new Int32Array(L1 * bins);
-  for (let li = 0; li < L1; li++) {
-    const base = li * d;
+  const B = new Float32Array(R * bins), C = new Int32Array(R * bins);
+  for (let i = 0; i < R; i++) {
+    const base = i * d;
     for (let b = 0; b < bins; b++) {
       const a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
       let best = v.data[base + a], bc = a;
       for (let c = a + 1; c < z; c++) { const x = v.data[base + c]; if (Math.abs(x) > Math.abs(best)) { best = x; bc = c; } }
-      B[li * bins + b] = best; C[li * bins + b] = bc;
+      B[i * bins + b] = best; C[i * bins + b] = bc;
     }
   }
-  const rows = []; for (let li = 0; li < L1; li++) rows.push(B.subarray(li * bins, (li + 1) * bins));
-  const sc = makeScale(rows, true, 0);
-  const rh = Math.max(expanded ? 6 : 4, Math.min(expanded ? 18 : 12, Math.floor((expanded ? innerHeight - 380 : 420) / L1)));
-  const W = Math.round(bins * px), H = L1 * rh, top = 6;
-  const cv = el("canvas", { class: "vec-canvas", width: bins, height: L1, role: "img",
-    "aria-label": `Every channel of token ${S.pos} at each of ${L1 - 1} layers. Download it as CSV from the Download menu.` });
+  const rows = []; for (let i = 0; i < R; i++) rows.push(B.subarray(i * bins, (i + 1) * bins));
+  // In a layer slice, "Each layer" means this layer gets its own range; the first token can be left out of it.
+  const sc = byToken ? makeScale(rows, true, 0, skipFirst() ? 1 : 0, true) : makeScale(rows, true, 0);
+  const room = expanded ? innerHeight - 380 : (byToken ? 560 : 420);
+  const rh = byToken ? Math.max(expanded ? 4 : 3, Math.min(16, Math.floor(room / R))) : Math.max(expanded ? 6 : 4, Math.min(expanded ? 18 : 12, Math.floor(room / R)));
+  const W = Math.round(bins * px), H = R * rh, top = 6;
+  const yOf = (i) => (byToken ? i : R - 1 - i);         // canvas row for data row i
+  const cv = el("canvas", { class: "vec-canvas", width: bins, height: R, role: "img",
+    "aria-label": byToken ? `Every channel of every token at ${S.vLayer === 0 ? "the embeddings" : "layer " + S.vLayer}. Download it as CSV from the Download menu.`
+                          : `Every channel of token ${S.pos} at each of ${R - 1} layers. Download it as CSV from the Download menu.` });
   cv.style.width = W + "px"; cv.style.height = H + "px"; cv.style.marginTop = top + "px";
-  const ctx = cv.getContext("2d"), img = ctx.createImageData(bins, L1);
-  for (let li = 0; li < L1; li++) {
-    const y = L1 - 1 - li;
+  const ctx = cv.getContext("2d"), img = ctx.createImageData(bins, R);
+  for (let i = 0; i < R; i++) {
+    const y = yOf(i), li = byToken ? 0 : i;
     for (let b = 0; b < bins; b++) {
-      const c = divRGB(sc.f(B[li * bins + b], li)), o = (y * bins + b) * 4;
+      const c = divRGB(sc.f(B[i * bins + b], li)), o = (y * bins + b) * 4;
       img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
     }
   }
   ctx.putImageData(img, 0, 0);
+  // row labels, pinned while the view scrolls sideways
   const axis = svg("svg", { class: "axis", width: axisW, height: top + H + 28, "aria-hidden": "true" });
   const ga = svg("g", { transform: `translate(${axisW},${top})` }); axis.append(ga);
-  const step = rh >= 12 ? 1 : rh >= 7 ? 4 : 8;
-  for (let li = 0; li < L1; li += step) {
-    const t = svg("text", { x: -8, y: H - li * rh - rh / 2 + 4, "text-anchor": "end", "font-size": 11, fill: "#5b6672" });
-    t.textContent = layerName(li); ga.append(t);
+  const step = byToken ? Math.max(1, Math.ceil(12 / rh)) : (rh >= 12 ? 1 : rh >= 7 ? 4 : 8);
+  for (let i = 0; i < R; i += step) {
+    const y = yOf(i) * rh + rh / 2 + 4;
+    const t = svg("text", { x: -8, y, "text-anchor": "end", "font-size": byToken && rh < 11 ? 10 : 11,
+      fill: byToken && i === S.pos ? "#1f2a36" : "#5b6672", "font-weight": byToken && i === S.pos ? 600 : 400 });
+    t.textContent = byToken ? `${i} ${tokenText(r.tokens[i]).slice(0, 12)}` : layerName(i); ga.append(t);
   }
   const ticks = svg("svg", { width: W, height: 28, "aria-hidden": "true", style: "display:block" });
   for (const c of niceTicks(0, d - 1, Math.max(2, Math.floor(W / 90)))) {
@@ -1532,30 +1587,48 @@ function drawVec() {
     const mark = el("div", { class: "vec-mark", title: `Channel ${S.chan}` });
     mark.style.left = ((S.chan + 0.5) * W / d - 1) + "px"; mark.style.height = H + "px"; plot.append(mark);
   }
+  if (byToken && S.pos != null && S.pos < R) {
+    const rm = el("div", { class: "vec-rowmark" }); rm.style.top = (top + S.pos * rh + rh - 1) + "px"; rm.style.width = W + "px"; plot.append(rm);
+  }
   const at = (e) => {
     const rect = cv.getBoundingClientRect();
     const b = Math.max(0, Math.min(bins - 1, Math.floor((e.clientX - rect.left) / rect.width * bins)));
-    const li = L1 - 1 - Math.max(0, Math.min(L1 - 1, Math.floor((e.clientY - rect.top) / rect.height * L1)));
-    return { b, li, k: li * bins + b };
+    const y = Math.max(0, Math.min(R - 1, Math.floor((e.clientY - rect.top) / rect.height * R)));
+    const i = byToken ? y : R - 1 - y;
+    return { b, i, k: i * bins + b };
   };
   cv.addEventListener("pointermove", (e) => {
-    const { b, li, k } = at(e), a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
-    showTip(e, fmt(B[k], 4), `${z - a > 1 ? `Channel ${C[k]}, the largest of ${a}–${z - 1}` : `Channel ${C[k]}`}. ${li === 0 ? "In the embeddings" : "After layer " + li}. Click to map this channel.`);
+    const { b, i, k } = at(e), a = Math.floor(b * d / bins), z = Math.max(a + 1, Math.floor((b + 1) * d / bins));
+    const ch = z - a > 1 ? `Channel ${C[k]}, the largest of ${a}–${z - 1}` : `Channel ${C[k]}`;
+    const where = byToken ? `Token ${i}, ${tokenText(r.tokens[i])}, ${S.vLayer === 0 ? "in the embeddings" : "after layer " + S.vLayer}`
+                          : (i === 0 ? "In the embeddings" : "After layer " + i);
+    showTip(e, fmt(B[k], 4), `${ch}. ${where}. Click to map this channel.`);
   });
   cv.addEventListener("pointerleave", hideTip);
   cv.addEventListener("click", (e) => {
-    const { k, li } = at(e); S.layerFocus = li; setMapView("chan"); S.mapGeom = null; loadChannel(C[k]); drawLens();
+    const { k, i } = at(e);
+    if (byToken) { S.pos = i; S.layerFocus = S.vLayer; } else S.layerFocus = i;
+    setMapView("chan"); S.mapGeom = null; S.chan = C[k];
+    renderAnalysis();
     const mt = $("map-title").getBoundingClientRect(); if (mt.top < 60 || mt.top > innerHeight) $("map-title").scrollIntoView({ block: "start", behavior: "smooth" });
   });
   host.replaceChildren(el("div", { class: "map-row" }, axis, plot));
-  const geom = [zoom, bins, px, L1, rh].join("|");
+  const geom = [mode, zoom, bins, px, R, rh].join("|");
   if (S.vecGeom === geom) { host.scrollLeft = keep.left; host.scrollTop = keep.top; }
   S.vecGeom = geom;
-  $("vec-title").replaceChildren(document.createTextNode(`Every channel at token ${S.pos}, `), el("code", { text: tokenText(r.tokens[S.pos]) }));
-  $("vec-sub").textContent = `Each row is the token's full residual-stream vector after one layer, all ${fmtInt.format(d)} channels, with the embeddings at the bottom.` +
-    (bins < d ? ` Each column covers ${nf(1).format(d / bins)} channels and shows the largest of them, so outliers stay visible.` : "") +
-    " Click a column to map that channel across all tokens. The gold line marks the channel in the map.";
-  drawLegend($("vec-legend"), sc);
+  if (byToken) {
+    $("vec-title").textContent = `Every channel at ${S.vLayer === 0 ? "the embeddings" : "layer " + S.vLayer}, for each token`;
+    $("vec-sub").textContent = `Each row is one token's residual-stream vector, all ${fmtInt.format(d)} channels, ${S.vLayer === 0 ? "in the embeddings" : "after layer " + S.vLayer}. ` +
+      "Use the slider or the arrows to step through the layers." +
+      (bins < d ? ` Each column covers ${nf(1).format(d / bins)} channels and shows the largest of them.` : "") +
+      " Click a cell to pick that token and map that channel; gold lines mark the current ones.";
+  } else {
+    $("vec-title").replaceChildren(document.createTextNode(`Every channel at token ${S.pos}, `), el("code", { text: tokenText(r.tokens[S.pos]) }));
+    $("vec-sub").textContent = `Each row is the token's full residual-stream vector after one layer, all ${fmtInt.format(d)} channels, with the embeddings at the bottom.` +
+      (bins < d ? ` Each column covers ${nf(1).format(d / bins)} channels and shows the largest of them, so outliers stay visible.` : "") +
+      " Click a column to map that channel across all tokens. The gold line marks the channel in the map.";
+  }
+  drawLegend($("vec-legend"), byToken ? { ...sc, mode: "global" } : sc);
 }
 
 // ---- prediction table
@@ -1638,6 +1711,11 @@ function download(kind) {
     const rows = [["layer", ...Array.from({ length: v.width }, (_, c) => "c" + c)]];
     for (let li = 0; li < v.rows; li++) rows.push([layerName(li), ...Array.from(v.data.subarray(li * v.width, (li + 1) * v.width), (x) => +x.toPrecision(6))]);
     saveText(`${stem}_token_${v.pos}_all_channels.csv`, toCsv(rows), "text/csv");
+  } else if (kind === "lslice") {
+    const v = S.lslice; if (!v) return;
+    const rows = [["token", ...Array.from({ length: v.width }, (_, c) => "c" + c)]];
+    for (let j = 0; j < v.rows; j++) rows.push([`${j}:${r.tokens[j]}`, ...Array.from(v.data.subarray(j * v.width, (j + 1) * v.width), (x) => +x.toPrecision(6))]);
+    saveText(`${stem}_layer_${layerName(v.layer)}_all_channels.csv`, toCsv(rows), "text/csv");
   } else if (kind === "lens") {
     const rows = [["layer", "position", "input_token", "rank", "token_id", "token", "probability"]];
     r.lens_ids.forEach((byPos, li) => byPos.forEach((ids, j) => ids.forEach((id, k) =>
@@ -1668,7 +1746,8 @@ function download(kind) {
     const scale = Math.max(1, Math.ceil(1200 / cv.width)), rh = Math.max(8, Math.ceil(600 / cv.height));
     const big = el("canvas", { width: cv.width * scale, height: cv.height * rh });
     const bx = big.getContext("2d"); bx.imageSmoothingEnabled = false; bx.drawImage(cv, 0, 0, big.width, big.height);
-    big.toBlob((b) => b && saveBlob(`${stem}_token_${S.pos}_all_channels.png`, b), "image/png");
+    const what = vslice() === "layer" ? `layer_${layerName(S.vLayer)}` : `token_${S.pos}`;
+    big.toBlob((b) => b && saveBlob(`${stem}_${what}_all_channels.png`, b), "image/png");
   }
   $("dl-menu").open = false;
 }
@@ -1678,6 +1757,9 @@ $("dl-menu").addEventListener("toggle", () => {
   $("dl-chan").textContent = `Channel ${S.chan ?? ""} as CSV (layers by tokens)`;
   $("dl-vec").textContent = `Every channel at token ${S.pos ?? ""} as CSV (layers by channels)`;
   $("dl-vec").disabled = !S.vec;
+  $("dl-lslice").textContent = `Every channel at ${S.vLayer === 0 ? "the embeddings" : "layer " + (S.vLayer ?? "")} as CSV (tokens by channels)`;
+  $("dl-lslice").disabled = !S.lslice;
+  $("dl-menu").querySelector("[data-dl=vecpng]").textContent = vslice() === "layer" ? "The layer view as a PNG image" : "The full-vector view as a PNG image";
 });
 document.addEventListener("click", (e) => { if (!$("dl-menu").contains(e.target)) $("dl-menu").open = false; });
 addEventListener("resize", () => { if (S.analysis && currentTab() === "p-act") { drawHeat(); S.vecGeom = null; drawVec(); } });

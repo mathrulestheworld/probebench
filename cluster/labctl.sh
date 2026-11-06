@@ -115,6 +115,18 @@ EOF
 
   job-state) job_state "$1" ;;
 
+  evictions)  # evictions <cluster id>: "<times evicted> <last machine>", from the job's own event log
+    is_int "${1:-}" || err "evictions needs a job number."
+    logf=""
+    for f in "$JOBS/build.$1.log" "$JOBS/download.$1.log"; do [ -f "$f" ] && logf=$f; done
+    if [ -z "$logf" ]; then
+      for d in "$SESS"/*/; do [ "$(cat "$d/jobid" 2>/dev/null)" = "$1" ] && logf="$d/job.log"; done
+    fi
+    [ -n "$logf" ] && [ -f "$logf" ] || { echo "0 -"; exit 0; }
+    n=$(grep -c "Job was evicted" "$logf" 2>/dev/null); n=${n:-0}
+    host=$(grep -oE 'slot[0-9_]+@[A-Za-z0-9.-]+' "$logf" | tail -1); host=${host#*@}
+    echo "$n ${host:--}" ;;
+
   build-progress)  # <stage> <fraction 0-1> : how far a build job has got
     out="$JOBS/build.$1.out"; errf="$JOBS/build.$1.err"
     phase=$(grep -E '^PHASE ' "$out" 2>/dev/null | tail -1)

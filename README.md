@@ -8,6 +8,7 @@ Probe Bench runs open-weight language models on the GPU cluster of Georgia Tech'
 - download the results as CSV, JSON or images, or save the full activations to a file to use in your own code
 - read the model card and browse the weights layer by layer, with statistics, histograms, singular values and comparisons across layers
 - see what's using GPU memory, including the KV cache from your last run
+- use a terminal on the cluster, browse and read your cluster files, and see every command Probe Bench runs, all from the app
 
 Probe Bench is a Mac app. It signs you in to the cluster, reserves a GPU through HTCondor and connects your browser to it. When you're done, it gives the GPU back.
 
@@ -66,7 +67,7 @@ When you're done, click **End session**. A session that goes unused for 30 minut
 
 - **Model panel.** Pick a downloaded model and click Load model. A progress bar shows how much of it is on the GPU. To load a fine-tuned checkpoint, use "Load from a folder on the cluster" and give the folder's full path.
 - **Generate.** Turn on Chat format for instruction-tuned models (names ending in `-it` or `Instruct`). The system prompt and Allow thinking appear only with Chat format on, since only the chat template uses them. Open "Exact input to the model" to see the full text the model receives, with the template's special tokens highlighted. Temperature 0 always picks the most likely next token.
-- **Activations.** Analyze a prompt, then switch the map between the size of each token's internal state, a single channel of the residual stream (start from the list of largest channels), and the top prediction at each layer. Below the map, every channel of the selected token is shown at every layer; click a column to map that channel. Choose the colors, a linear or log scale, and one color range for the whole map or one per layer. Expand opens the results full screen, and Download saves the map, the numbers and the predictions. Save activations writes a file to `~/probebench/exports/` on the cluster:
+- **Activations.** Analyze a prompt, then switch the map between the size of each token's internal state, a single channel of the residual stream (start from the list of largest channels), and the top prediction at each layer. Below the map, the full activations are shown as a heatmap: either one token's vector at every layer, or every token's vector at one layer, with a slider to step through the layers. Click a column to map that channel. Choose the colors, a linear or log scale, and one color range for the whole map or one per layer. Expand opens the results full screen, and Download saves the map, the numbers and the predictions. Save activations writes a file to `~/probebench/exports/` on the cluster:
 
   ```python
   import torch
@@ -77,6 +78,16 @@ When you're done, click **End session**. A session that goes unused for 30 minut
 
 - **Weights.** The model card at the top lists the architecture (layers, heads, attention pattern, context length), where the parameters are, the README and `config.json`. Browse the parameters one layer at a time, or filter the full list, for example `layers.10.mlp`. Pick a matrix for its statistics, a histogram of its values and its singular values, then compare it across all layers.
 - **GPU memory.** Click the memory bar at the top for a breakdown: model weights, working memory, memory PyTorch holds for reuse, and CUDA's own share. After you generate, it shows how big the KV cache got, layer by layer, and roughly how many more tokens would fit.
+
+### Terminal, files and commands
+
+Click **Terminal** at the top of the app. It opens a panel with three tabs:
+
+- **Cluster terminal:** a shell on compute01, the same as `ssh probebench-submit`. Buttons run common checks for you: your jobs, why a job is waiting, the newest job or session log, and the GPU machines. Copy output puts everything on the clipboard.
+- **Files:** browse your cluster home folder and read files without typing commands. Logs open at the end, and Follow reloads them every few seconds. Shortcuts go to job logs, sessions, saved activations and models. It's read-only; use the terminal to move or delete files.
+- **Commands Probe Bench ran:** every command the app has sent to the cluster, with what it printed. Routine status checks are hidden unless you ask for them. Copy the last 20 to send to someone helping you.
+
+If a job keeps getting stopped the moment it starts, which looks like it's stuck waiting, the app now says so and points you to the terminal.
 
 ### Gated models
 

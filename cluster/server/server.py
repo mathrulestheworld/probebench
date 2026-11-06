@@ -966,6 +966,13 @@ class Lab:
             raise UserError("That token isn't in the analysis.")
         return r[:, pos, :].contiguous().numpy().astype("<f4").tobytes(), (r.shape[0], r.shape[-1])
 
+    def layer_slice(self, aid, layer):
+        """Every channel of every token at one layer: [tokens, width], float32."""
+        r = self.last_analysis(aid)
+        if not 0 <= layer < r.shape[0]:
+            raise UserError(f"Pick a layer from 0 to {r.shape[0] - 1}.")
+        return r[layer].contiguous().numpy().astype("<f4").tobytes(), (r.shape[1], r.shape[-1])
+
     def do_export(self, task, p):
         enc, truncated, _ = self.analyze_inputs(p)
         task["progress"] = "Running the prompt through the model"
@@ -1240,6 +1247,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(lab.channel((q.get("aid") or [""])[0], int((q.get("c") or ["-1"])[0])))
             if path == "/api/act/vector":
                 data, shape = lab.vector((q.get("aid") or [""])[0], int((q.get("pos") or ["-1"])[0]))
+                return self.send_bytes(data, {"X-Shape": f"{shape[0]},{shape[1]}"})
+            if path == "/api/act/layer":
+                data, shape = lab.layer_slice((q.get("aid") or [""])[0], int((q.get("layer") or ["-1"])[0]))
                 return self.send_bytes(data, {"X-Shape": f"{shape[0]},{shape[1]}"})
             if path.startswith("/api/exports/"):
                 return self.send_export(path.rsplit("/", 1)[1])
