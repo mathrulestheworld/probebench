@@ -161,6 +161,9 @@ main { max-width: 900px; margin: 0 auto; padding: 26px 20px 60px; }
 .where dd { margin: 0; }
 .log { font-family: var(--mono); font-size: 12px; white-space: pre-wrap; background: #f7f9fb; border-radius: 5px; padding: 10px 12px; max-height: 260px; overflow: auto; margin-top: 8px; }
 footer { color: var(--ink-2); font-size: 13.5px; margin-top: 22px; text-align: center; }
+.avoid-list { margin: 0; padding-left: 20px; font-size: 14px; }
+.avoid-list:empty { display: none; }
+.avoid-list .hint { margin-left: 6px; }
 
 /* ---------- terminal drawer */
 .spacer { flex: 1; }
@@ -396,6 +399,13 @@ body.drawer-open main { padding-bottom: 50vh; }
             <button class="btn small quiet" id="save-token" type="button">Save token</button>
           </div>
           <p class="msg" id="token-msg"></p>
+        </div>
+        <div class="stack">
+          <h3>Machines to avoid</h3>
+          <p class="hint" id="avoid-text"></p>
+          <ul class="avoid-list" id="avoid-list"></ul>
+          <div class="row"><button class="btn small quiet" id="avoid-clear" type="button" hidden>Stop avoiding them</button></div>
+          <p class="msg" id="avoid-msg"></p>
         </div>
       </div>
       <dl class="where">
@@ -782,6 +792,29 @@ $("cmd-copy").addEventListener("click", async (e) => {
   try { await navigator.clipboard.writeText(text); e.target.textContent = "Copied"; setTimeout(() => (e.target.textContent = "Copy the last 20"), 1500); } catch (err) { /* blocked */ }
 });
 
+// ------------------------------------------------------------ machines to avoid
+function renderAvoid(st) {
+  const list = (st.cluster && st.cluster.avoid) || [], ul = $("avoid-list");
+  const sig = JSON.stringify(list); if (ul.dataset.sig === sig) return; ul.dataset.sig = sig;
+  ul.replaceChildren();
+  for (const a of list) {
+    const day = (t) => new Date(t * 1000).toLocaleDateString([], { month: "short", day: "numeric" });
+    ul.append(el("li", {}, document.createTextNode(a.host.split(".")[0]),
+      el("span", { class: "hint", text: a.source === "config" ? "listed in ~/probebench/config" : `a job got stuck there on ${day(a.at)}; avoided until ${day(a.at + 7 * 86400)}` })));
+  }
+  const learned = list.filter((a) => a.source !== "config").length;
+  $("avoid-clear").hidden = !learned;
+  $("avoid-text").textContent = list.length
+    ? "Probe Bench keeps your jobs off these machines."
+    : "None. If a job keeps being stopped the moment it starts on some machine, Probe Bench submits it again elsewhere and keeps your jobs off that machine for 7 days.";
+}
+$("avoid-clear").addEventListener("click", async () => {
+  $("avoid-clear").disabled = true;
+  try { await api("/api/avoid/clear", {}); showMsg("avoid-msg", "Jobs can use those machines again.", "ok"); poll(); }
+  catch (e) { showMsg("avoid-msg", e.message); }
+  finally { $("avoid-clear").disabled = false; }
+});
+
 // ------------------------------------------------------------ polling
 async function poll() {
   try {
@@ -991,6 +1024,7 @@ function renderHome(st) {
   const gw = st.gateway.startsWith("keep") ? "keep" : "castle";
   if (document.activeElement !== $("gateway")) $("gateway").value = gw;
   $("token-state").textContent = st.cluster ? (st.cluster.token ? "A token is saved on the cluster." : "No token saved.") : "";
+  renderAvoid(st);
   const logText = st.log.join("\n");
   if (logText !== lastLog) { lastLog = logText; $("log").textContent = logText || "Nothing yet."; }
 }

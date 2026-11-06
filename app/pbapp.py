@@ -737,13 +737,30 @@ class App:
         if not jid.isdigit():
             raise Problem(f"Couldn't submit the {kind} job.")
         start = now()
+        moved, last_ev, tried = "", 0.0, []
         while not self.quitting:
             st = self.labctl("job-state", jid).strip()
             mins = int((now() - start) // 60)
             el = f"{mins} min" if mins else "under a minute"
+            # A job that's evicted the moment it starts flips between idle and running; move it to another machine.
+            if st in ("IDLE", "RUNNING") and now() - start > 45 and now() - last_ev > 20:
+                last_ev = now()
+                n, host = self.check_evictions(jid)
+                if n >= 3 and host:
+                    tried.append(host.split(".")[0])
+                    if len(tried) > 4:
+                        self.labctl("stop-job", jid)
+                        raise Problem(f"The {kind} job keeps being stopped as soon as it starts, on every machine tried "
+                                      f"({', '.join(tried)}). This is a cluster problem: email helpdesk@isye.gatech.edu "
+                                      f"with job number {jid}.")
+                    old, jid = jid, self.move_job(jid, host, kind)
+                    moved = (f"Job {old} kept being stopped as soon as it started on {tried[-1]}, so Probe Bench "
+                             f"submitted it again as job {jid}, avoiding that machine. ")
+                    report({"fraction": 0.0, "text": moved + "Waiting for it to start."})
+                    time.sleep(8)
+                    continue
             if st == "IDLE":
-                ev = self.eviction_note(jid) if now() - start > 45 else ""
-                report({"fraction": 0.0, "text": ev or (f"Waiting for the cluster to start job {jid} on a free CPU "
+                report({"fraction": 0.0, "text": moved + (f"Waiting for the cluster to start job {jid} on a free CPU "
                         f"(waiting {el}). Jobs that don't need a GPU usually start within a minute or two.")})
             elif st == "RUNNING":
                 msg = f"running (job {jid}, {el} so far)"
@@ -772,10 +789,11 @@ class App:
                 if st != "DONE 0":
                     log = self.labctl("job-log", jid, kind).strip().splitlines()[-6:]
                     raise Problem(f"The {kind} job failed. " + " ".join(log))
-                return
+                return jid
             elif st == "REMOVED":
                 raise Problem(f"The {kind} job was removed.")
             time.sleep(8)
+        return jid
 
     # ---- files on the cluster (read-only browsing for the page's Files tab)
     def need_signin(self):
@@ -828,24 +846,35 @@ class App:
         return {"path": path, "size": size, "mtime": mtime, "end": end, "shown": len(body.encode()),
                 "partial": size > nbytes, "binary": binary, "text": "" if binary else body}
 
-    def eviction_note(self, jid):
-        """A job that keeps getting evicted the moment it starts looks idle; say so plainly."""
+    def check_evictions(self, jid):
+        """How often a job was stopped right as it started, and the machine it was on, from its event log."""
         try:
             n, _, host = self.labctl("evictions", jid).strip().partition(" ")
-            n = int(n)
+            return int(n), (host.strip() if host.strip() not in ("", "-") else "")
         except (Problem, ValueError):
-            return ""
-        if n < 3:
-            return ""
-        where = f", most recently on {host.split('.')[0]}" if host and host != "-" else ""
-        return (f"Job {jid} keeps being stopped as soon as it starts ({n} times{where}), so it looks idle. "
-                "This is a problem on the cluster side, not a slow install. Open Terminal and click "
-                "\"Why is my job waiting?\", or send the job's log to helpdesk@isye.gatech.edu.")
+            return 0, ""
+
+    def move_job(self, jid, host, kind):
+        """Resubmit a job that keeps getting evicted on one machine. The cluster side keeps all jobs off that
+        machine for 7 days (Settings shows the list)."""
+        new = (self.labctl("resubmit", jid, host).strip().splitlines() or [""])[-1]
+        if not new.isdigit():
+            raise Problem(f"Couldn't resubmit the {kind} job: {new or 'no job number came back'}")
+        short = host.split(".")[0]
+        self.note(f"The {kind} job {jid} kept being stopped as soon as it started on {short}. "
+                  f"Resubmitted it as job {new}; jobs will avoid {short} for 7 days.")
+        def refresh():
+            try:
+                self.refresh_cluster()
+            except Problem:
+                pass
+        threading.Thread(target=refresh, daemon=True).start()
+        return new
 
     # ---- cluster info
     def refresh_cluster(self):
         out = self.labctl("summary")
-        info = {"container": "missing", "token": False, "hf_home": "", "models": [], "sessions": []}
+        info = {"container": "missing", "token": False, "hf_home": "", "models": [], "sessions": [], "avoid": []}
         for line in out.splitlines():
             parts = line.split()
             if not parts:
@@ -860,6 +889,9 @@ class App:
                 info["models"].append({"id": parts[1], "size": parts[2]})
             elif parts[0] == "session" and len(parts) >= 4:
                 info["sessions"].append({"sid": parts[1], "jid": parts[2], "state": parts[3]})
+            elif parts[0] == "avoid" and len(parts) >= 3:
+                info["avoid"].append({"host": parts[1], "source": parts[2],
+                                      "at": float(parts[3]) if len(parts) > 3 and parts[3].isdigit() else None})
         info["updated"] = now()
         with self.lock:
             self.cluster = info
@@ -973,6 +1005,22 @@ class App:
         hinted = False
         while not sess.stop.is_set():
             st = self.session_state(sess)
+            # A job that's evicted the moment it starts flips between waiting and starting; move it to another machine.
+            queued = now() - sess.phase_started.get("queue", now())
+            if (st == "WAITING" or st.startswith("STARTING")) and queued > 45 and sess.jid and now() - getattr(sess, "_ev_checked", 0) > 20:
+                sess._ev_checked = now()
+                n, host = self.check_evictions(sess.jid)
+                if n >= 3 and host:
+                    sess.moves = getattr(sess, "moves", 0) + 1
+                    short = host.split(".")[0]
+                    if sess.moves > 4:
+                        self.labctl("stop", sess.sid)
+                        raise Problem(f"The session's job keeps being stopped as soon as it starts, even after moving "
+                                      f"it off four machines. Email helpdesk@isye.gatech.edu with job number {sess.jid}.")
+                    old, sess.jid = sess.jid, self.move_job(sess.jid, host, "session")
+                    sess.moved_note = (f"Job {old} kept being stopped as soon as it started on {short}, so Probe Bench "
+                                       f"submitted it again as job {sess.jid}, avoiding that machine.")
+                    sess.detail = sess.moved_note
             if st == "WAITING":
                 waited = now() - sess.phase_started.get("queue", now())
                 sess.state = "waiting"
@@ -991,17 +1039,12 @@ class App:
                 if waited > 120 and not hinted:
                     hinted = True
                     sess.detail = self.labctl("why", sess.sid).strip()
-                if waited > 45 and sess.jid and now() - getattr(sess, "_ev_checked", 0) > 30:
-                    sess._ev_checked = now()
-                    ev = self.eviction_note(sess.jid)
-                    if ev:
-                        sess.detail = ev
             elif st.startswith("STARTING"):
                 sess.state = "starting"
                 sess.set_phase("start")
                 host = st[9:].strip()
                 sess.message = f"Got a GPU{(' on ' + host.split('.')[0]) if host else ''}. Starting the server"
-                sess.detail = ""
+                sess.detail = getattr(sess, "moved_note", "")
             elif st.startswith("READY"):
                 _, sess.host, sess.port, sess.jid = st.split()[:4]
                 return
@@ -1429,6 +1472,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/download":
             model = str(b.get("model", "")).strip()
             app.run_op("download-" + model, app.do_download, model)
+            return self.send(200, {"ok": True})
+        if path == "/api/avoid/clear":
+            app.labctl("clear-avoid")
+            app.refresh_cluster()
+            app.note("Cleared the list of machines to avoid.")
             return self.send(200, {"ok": True})
         if path == "/api/token":
             app.save_token(str(b.get("token", "")))

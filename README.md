@@ -89,7 +89,13 @@ Click **Terminal** at the top of the app. It opens a panel with three tabs:
 
 In a GPU session, the **Console** button on the model page shows each request the page sends (Load model, Generate, Analyze, and so on) with the Python the session runs for it, ready to copy into your own scripts. The same lines go to the session's log on the cluster; the terminal's "Follow session log" button shows them live.
 
-If a job keeps getting stopped the moment it starts, which looks like it's stuck waiting, the app now says so and points you to the terminal.
+### Machines that drop jobs
+
+Now and then a cluster machine accepts a job and drops it the moment it starts, over and over, so the job looks stuck waiting. Probe Bench watches for this. When a job (the software install, a download or a GPU session) is dropped a few times on one machine, it removes the job, submits it again elsewhere, and says so. It then keeps all your jobs off that machine for 7 days. Settings lists the machines it's avoiding, with a button to stop. To avoid machines for good, add a line like this to `~/probebench/config` on the cluster:
+
+```
+AVOID_MACHINES="isye-yancey"
+```
 
 ### Gated models
 

@@ -6,7 +6,9 @@
 #   sessions/   one folder per GPU session: access token, logs, server address
 #   jobs/       logs of container builds and model downloads
 #   exports/    activations saved from the web page
+#   avoid       machines a job got stuck on (each job is kept off them for 7 days)
 # Optional overrides go in ~/probebench/config, e.g.  HF_HOME_DIR=/some/other/hf_cache
+# or, to keep every job off some machines for good:  AVOID_MACHINES="isye-yancey isye-hpc1231-4"
 set -uo pipefail
 
 LAB="${PROBEBENCH_LAB:-$HOME/probebench}"
@@ -20,6 +22,35 @@ JOBS="$LAB/jobs"
 mkdir -p "$SESS" "$JOBS" "$LAB/exports" "$HF_HOME_DIR"
 
 err() { echo "ERROR $*"; exit 1; }
+AVOID_FILE="$LAB/avoid"
+AVOID_DAYS=7
+
+avoid_list() {  # full names of machines to keep jobs off: AVOID_MACHINES from the config, plus recent entries in $AVOID_FILE
+  local cutoff h t
+  cutoff=$(( $(date +%s) - AVOID_DAYS * 86400 ))
+  {
+    for h in ${AVOID_MACHINES:-}; do echo "$h"; done
+    if [ -f "$AVOID_FILE" ]; then
+      while read -r h t; do [ -n "$h" ] && [ "${t:-0}" -ge "$cutoff" ] 2>/dev/null && echo "$h"; done < "$AVOID_FILE"
+    fi
+  } | while read -r h; do
+    [[ "$h" =~ ^[A-Za-z0-9.-]+$ ]] || continue
+    [[ "$h" == *.* ]] || h="$h.isye.gatech.edu"
+    echo "$h"
+  done | sort -u
+}
+
+requirements_line() {  # an HTCondor requirements line keeping the job off those machines (nothing if there are none)
+  local r="" h
+  while read -r h; do [ -n "$h" ] && r="${r:+$r && }(Machine =!= \"$h\")"; done < <(avoid_list)
+  if [ -n "$r" ]; then echo "requirements = $r"; fi
+}
+
+job_log() {  # the HTCondor event log of a job Probe Bench submitted
+  local f d
+  for f in "$JOBS/build.$1.log" "$JOBS/download.$1.log"; do [ -f "$f" ] && { echo "$f"; return; }; done
+  for d in "$SESS"/*/; do [ "$(cat "$d/jobid" 2>/dev/null)" = "$1" ] && { echo "${d}job.log"; return; }; done
+}
 is_int() { [[ "$1" =~ ^[0-9]+$ ]]; }
 
 submit() {  # submit a file, print the cluster id or an ERROR line
@@ -69,7 +100,7 @@ case "$cmd" in
 
   build)  # build the container if needed, then unpack it (CPU-only job)
     # If a build is already queued or running (say, from an interrupted setup), reuse it.
-    running=$(condor_q -constraint 'ProbeBench =?= "build"' -af ClusterId 2>/dev/null | head -1)
+    running=$(condor_q -constraint 'ProbeBench =?= "build" && JobStatus < 3' -af ClusterId 2>/dev/null | head -1)
     if [ -n "$running" ]; then echo "$running"; exit 0; fi
     cat > "$JOBS/build.sub" <<EOF
 universe = vanilla
@@ -85,6 +116,7 @@ request_memory = 16GB
 request_disk = 30GB
 batch_name = probebench-build
 +ProbeBench = "build"
+$(requirements_line)
 queue
 EOF
     submit "$JOBS/build.sub" ;;
@@ -106,6 +138,7 @@ request_memory = 8GB
 request_disk = 12GB
 batch_name = probebench-download
 +ProbeBench = "download"
+$(requirements_line)
 queue
 EOF
     submit "$JOBS/download.sub" ;;
@@ -117,15 +150,45 @@ EOF
 
   evictions)  # evictions <cluster id>: "<times evicted> <last machine>", from the job's own event log
     is_int "${1:-}" || err "evictions needs a job number."
-    logf=""
-    for f in "$JOBS/build.$1.log" "$JOBS/download.$1.log"; do [ -f "$f" ] && logf=$f; done
-    if [ -z "$logf" ]; then
-      for d in "$SESS"/*/; do [ "$(cat "$d/jobid" 2>/dev/null)" = "$1" ] && logf="$d/job.log"; done
-    fi
+    logf=$(job_log "$1")
     [ -n "$logf" ] && [ -f "$logf" ] || { echo "0 -"; exit 0; }
-    n=$(grep -c "Job was evicted" "$logf" 2>/dev/null); n=${n:-0}
-    host=$(grep -oE 'slot[0-9_]+@[A-Za-z0-9.-]+' "$logf" | tail -1); host=${host#*@}
-    echo "$n ${host:--}" ;;
+    awk -v j="$1" '
+      /^[0-9][0-9][0-9] \(/ { split($2, a, "."); cur = substr(a[1], 2) }
+      cur == j && /Job was evicted/ { n++ }
+      cur == j && match($0, /slot[0-9_]+@[A-Za-z0-9.-]+/) { h = substr($0, RSTART, RLENGTH); sub(/.*@/, "", h) }
+      cur == j && h == "" && match($0, /alias=[A-Za-z0-9.-]+/) { h = substr($0, RSTART + 6, RLENGTH - 6) }
+      END { print n + 0, (h == "" ? "-" : h) }' "$logf" ;;
+
+  resubmit)  # resubmit <cluster id> <machine>: remove a job that keeps getting evicted there, and submit it again elsewhere
+    jid=${1:-}; host=${2:-}
+    is_int "$jid" || err "resubmit needs a job number."
+    [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || err "resubmit needs a machine name."
+    logf=$(job_log "$jid")
+    case "$logf" in
+      "$JOBS"/build.*) sub="$JOBS/build.sub" ;;
+      "$JOBS"/download.*) sub="$JOBS/download.sub" ;;
+      */job.log) sub="$(dirname "$logf")/session.sub" ;;
+      *) err "Couldn't find how job $jid was submitted." ;;
+    esac
+    [ -f "$sub" ] || err "Couldn't find $sub."
+    condor_rm "$jid" >/dev/null 2>&1
+    echo "$host $(date +%s)" >> "$AVOID_FILE"
+    req=$(requirements_line)
+    awk -v r="$req" '/^requirements = /{ next } /^queue$/ && r != "" { print r } { print }' "$sub" > "$sub.tmp" && mv "$sub.tmp" "$sub"
+    new=$(submit "$sub")
+    case "$new" in ERROR*|"") echo "${new:-ERROR condor_submit printed nothing}"; exit 1 ;; esac
+    case "$sub" in */session.sub) echo "$new" > "$(dirname "$sub")/jobid" ;; esac
+    echo "$new" ;;
+
+  avoid)  # machines jobs are kept off: "<machine> config" or "<machine> learned <unix time>"
+    for h in ${AVOID_MACHINES:-}; do echo "$h config"; done
+    if [ -f "$AVOID_FILE" ]; then
+      cutoff=$(( $(date +%s) - AVOID_DAYS * 86400 ))
+      sort -k2,2nr "$AVOID_FILE" | awk -v c="$cutoff" '$2 >= c && !seen[$1]++ { print $1, "learned", $2 }'
+    fi ;;
+
+  clear-avoid)  # forget the machines Probe Bench learned to avoid (not the ones in the config)
+    rm -f "$AVOID_FILE"; echo cleared ;;
 
   build-progress)  # <stage> <fraction 0-1> : how far a build job has got
     out="$JOBS/build.$1.out"; errf="$JOBS/build.$1.err"
@@ -189,6 +252,7 @@ request_disk = ${disk}GB
 batch_name = probebench
 +ProbeBench = "session"
 +ProbeBenchSession = "$sid"
+$(requirements_line)
 queue
 EOF
     jid=$(submit "$d/session.sub") || { echo "$jid"; exit 1; }
@@ -263,7 +327,8 @@ EOF
     if [ -f "$HF_HOME_DIR/token" ]; then echo "token yes"; else echo "token no"; fi
     echo "hf_home $HF_HOME_DIR"
     bash "$0" models | sed 's/^/model /'
-    bash "$0" list | sed 's/^/session /' ;;
+    bash "$0" list | sed 's/^/session /'
+    bash "$0" avoid | sed 's/^/avoid /' ;;
 
   status)
     echo "Probe Bench folder:  $LAB"
